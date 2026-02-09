@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:16
+    container_name: moodle_db
+    env_file:
+      - .env
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: moodle_app
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    ports:
+      - "8501:8501"
+    depends_on:
+      - db
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: streamlit run app/streamlit_app.py --server.address=0.0.0.0 --server.port=8501
+
+volumes:
+  pgdata:
