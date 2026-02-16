@@ -77,3 +77,9 @@ requirements.txt
 Do not commit real Moodle log data.
 
 data/ folder should remain ignored by Git.
+
+## Database setup
+
+The schema in `sql/schemas/` runs automatically on first startup.
+If you get “relation does not exist”, reset the DB:
+docker compose down -v && docker compose up --build
