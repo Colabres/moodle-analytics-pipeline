@@ -36,3 +36,20 @@ def insert_events(cur, rows):
         """,
         rows,
     )
+
+def fetch_events_by_file(cur, file_id: int, limit: int = 200):
+    """
+    Fetch a preview of events belonging to one uploaded file.
+    Returns list of tuples in the same order as the SELECT.
+    """
+    cur.execute(
+        """
+        SELECT id, ts, user_id, context, component, event_name, description, origin
+        FROM moodle.event
+        WHERE file_id = %s
+        ORDER BY id ASC
+        LIMIT %s
+        """,
+        (file_id, limit),
+    )
+    return cur.fetchall()

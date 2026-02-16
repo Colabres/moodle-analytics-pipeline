@@ -25,12 +25,12 @@ def _get_optional_str(row: pd.Series, col: str) -> Optional[str]:
     return value
 
 
-def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int]:
+def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
     """
     Transfer dataframe rows into Postgres.
 
     Returns:
-        (inserted_rows, skipped_rows)
+        (file_id, inserted_rows, skipped_rows)
 
     Skips:
         - rows with invalid timestamp in column 'Aika'
@@ -51,8 +51,9 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int]:
     skipped_rows = int((~valid_mask).sum())
     df2 = df2[valid_mask]
 
+
     if len(df2) == 0:
-        return 0, skipped_rows
+        return 0, 0, skipped_rows
 
     # 2️⃣ Extract strict numeric user_id from Kuvaus
     if "Kuvaus" in df2.columns:
@@ -82,7 +83,7 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int]:
         )
 
     if not rows:
-        return 0, skipped_rows
+        return 0, 0, skipped_rows
 
     # 4️⃣ Insert into DB
     with connect() as conn:
@@ -101,4 +102,4 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int]:
 
         conn.commit()
 
-    return len(rows_with_file), skipped_rows
+    return file_id, len(rows_with_file), skipped_rows
