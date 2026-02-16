@@ -60,6 +60,23 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
     else:
         df2["user_id"] = None
 
+    IGNORE_VALUES_SET = {
+        179434, 179631, 44240, 14552, 14294, 4688, 54402,
+        39644, 87979, 15115, 31281, 173796, 2067, 204691,
+        48118,0,-1
+    }
+
+    before = len(df2)
+
+    df2 = df2[
+        df2["user_id"].notna() &                 # remove NaN
+        ~df2["user_id"].isin(IGNORE_VALUES_SET)  # remove blacklisted IDs
+    ]
+
+    filtered_blacklist = before - len(df2)
+    skipped_rows += filtered_blacklist
+
+
     # 3️⃣ Build rows for DB insert
     rows = []
     for _, r in df2.iterrows():
@@ -70,7 +87,7 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
             user_id = None
         else:
             user_id = int(user_id)
-            
+
         context = _get_optional_str(r, "Tapahtuman konteksti")
         component = _get_optional_str(r, "Komponentti")
         event_name = _get_optional_str(r, "Tapahtuman nimi")
