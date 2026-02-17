@@ -66,28 +66,34 @@ def compute_earlier_and_later_time_spent_on_exams(df:pd.DataFrame, file_ids, fir
         for i in user_ids:
             early_activity = early[early["user_id"] == i].sort_values(by=["ts"]).to_numpy()
             late_activity = later[later["user_id"] == i].sort_values(by=["ts"]).to_numpy()
+            total_time = 0
             counter = 0
             start_time = None
-            for l in early_activity:
-                if l[7] == "Tenttiin vastaaminen aloitettu":#Kuvaus
-                    if counter == 0:
-                        start_time = dt.datetime(l[2])
-                    counter += 1
-                else:
-                    counter -= 1
-                    if counter == 0:
-                        earlier_activity = np.append(earlier_activity, (dt.datetime(l[2])-start_time).total_seconds()/3600)
-                        start_time = None
-            for l in late_activity:
-                if l[7] == "Tenttiin vastaaminen aloitettu":#Kuvaus
-                    if counter == 0:
-                        start_time = dt.datetime(l[2])
-                    counter += 1
-                else:
-                    counter -= 1
-                    if counter == 0:
-                        later_activity = np.append(later_activity, (dt.datetime(l[2])-start_time).total_seconds()/3600)
-                        start_time = None
+            if len(early_activity) > 0:
+                for l in early_activity:
+                    if l[7] == "Tenttiin vastaaminen aloitettu":#Kuvaus
+                        if counter == 0:
+                            start_time = l[2]
+                        counter += 1
+                    else:
+                        counter -= 1
+                        if counter == 0:
+                            total_time += (l[2]-start_time).total_seconds()/3600
+                            start_time = None
+            earlier_activity = np.append(earlier_activity, total_time)
+            total_time = 0
+            if len(late_activity) > 0:
+                for l in late_activity:
+                    if l[7] == "Tenttiin vastaaminen aloitettu":#Kuvaus
+                        if counter == 0:
+                            start_time = l[2]
+                        counter += 1
+                    else:
+                        counter -= 1
+                        if counter == 0:
+                            total_time += (l[2]-start_time).total_seconds()/3600
+                            start_time = None
+            later_activity = np.append(later_activity, total_time)
     return earlier_activity, later_activity
 
 if __name__ == "__main__":
