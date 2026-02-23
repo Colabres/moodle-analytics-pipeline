@@ -2,30 +2,33 @@ import pandas as pd
 import numpy as np
 import datetime as dt
 
-def compute_earlier_and_later_submission_activity(df:pd.DataFrame, file_ids, per_day:bool=False, first_portion:float=1/4):
+def compute_earlier_and_later_submission_activity(df:pd.DataFrame, courses, per_day:bool=False, first_portion:float=1/4):
     """
     Note: the datatype of "ts" column in "df" is assumed to be datetime
 
     Inputs:
-       df: pandas Dataframe of all moodle activity
-       file_ids: numpy array or list of all course ids to be included
-       per_day: boolean designating whether or not to average over days, default False
-       first_portion: a float in exclusive range [0, 1] designating the portion of overall course duration to be designated for early activity, default 1/4 == 0.25
+        df: pandas Dataframe of all moodle activity
+        courses: numpy array or list of all courses to be included
+            each item in the array/list is expected to be a tuple of the following format (course_id, start, end)
+            where "course_id", "start" and "end" are the id, start time and end time of a course respectively
+            the datatype of "start" and "end" are expected to be datetime
+        per_day: boolean designating whether or not to average over days, default False
+        first_portion: a float in exclusive range [0, 1] designating the portion of overall course duration to be designated for early activity, default 1/4 == 0.25
     
     Outputs:
-       earlier_activity: numpy array of earlier submission activity
-       later_activity: numpy array of later submission activity
+        earlier_activity: numpy array of earlier submission activity
+        later_activity: numpy array of later submission activity
     """
     if first_portion >= 1 or first_portion <= 0:
         raise ValueError("Input 'first portion' must be in exclusive range [0, 1]")
-    df1 = df[df["description"].isin(["Tenttivastaus palautettu", "Palautus on lähetetty"])]
+    df1 = df[df["event_name"].isin(["Tenttivastaus palautettu", "Palautus on lähetetty"])]
     earlier_activity = np.empty(shape=0)
     later_activity = np.empty(shape=0)
-    for course_id in file_ids:
-        activity = df1[df1["file_id"] == course_id]
-        neljannes = ((activity["ts"].max()-activity["ts"].min()))*first_portion
-        early = activity[activity["ts"]-activity["ts"].min() <= neljannes]
-        later = activity[activity["ts"]-activity["ts"].min() > neljannes]
+    for course in courses:
+        activity = df1[df1["file_id"] == course[0]]
+        neljannes = ((course[2]-course[1]))*first_portion
+        early = activity[activity["ts"]-course[1] <= neljannes]
+        later = activity[activity["ts"]-course[1] > neljannes]
         user_ids = activity["user_id"].unique()
         for i in user_ids:
             early_activity = len(early[early["user_id"] == i].index)
@@ -38,30 +41,70 @@ def compute_earlier_and_later_submission_activity(df:pd.DataFrame, file_ids, per
                 later_activity = np.append(later_activity, late_activity)
     return earlier_activity, later_activity
 
-def compute_earlier_and_later_time_spent_on_exams(df:pd.DataFrame, file_ids, first_portion:float=1/4):
+def compute_user_ids_who_made_submissions(df:pd.DataFrame, courses, first_portion:float=1/4):
     """
     Note: the datatype of "ts" column in "df" is assumed to be datetime
 
     Inputs:
-       df: pandas Dataframe of all moodle activity
-       file_ids: numpy array or list of all course ids to be included
-       per_day: boolean designating whether or not to average over days, default False
-       first_portion: a float in exclusive range [0, 1] designating the portion of overall course duration to be designated for early activity, default 1/4 == 0.25
+        df: pandas Dataframe of all moodle activity
+        courses: numpy array or list of all courses to be included
+            each item in the array/list is expected to be a tuple of the following format (course_id, start, end)
+            where "course_id", "start" and "end" are the id, start time and end time of a course respectively
+            the datatype of "start" and "end" are expected to be datetime
+        first_portion: a float in exclusive range [0, 1] designating the portion of overall course duration to be designated for early activity, default 1/4 == 0.25
     
     Outputs:
-       earlier_activity: numpy array of earlier time spent on exams
-       later_activity: numpy array of later time spent on exams
+        earlier_activity: numpy array of numbers of users who made any submission in the earlier portion of a course
+        later_activity: numpy array of numbers of users who made any submission in the later portion of a course
     """
     if first_portion >= 1 or first_portion <= 0:
         raise ValueError("Input 'first portion' must be in exclusive range [0, 1]")
-    df1 = df[df["description"].isin(["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"])]
+    df1 = df[df["event_name"].isin(["Tenttivastaus palautettu", "Palautus on lähetetty"])]
     earlier_activity = np.empty(shape=0)
     later_activity = np.empty(shape=0)
-    for course_id in file_ids:
-        activity = df1[df1["file_id"] == course_id]
-        neljannes = ((activity["ts"].max()-activity["ts"].min()))*first_portion
-        early = activity[activity["ts"]-activity["ts"].min() <= neljannes]
-        later = activity[activity["ts"]-activity["ts"].min() > neljannes]
+    for course in courses:
+        activity = df1[df1["file_id"] == course[0]]
+        neljannes = ((course[2]-course[1]))*first_portion
+        early = activity[activity["ts"]-course[1] <= neljannes]
+        later = activity[activity["ts"]-course[1] > neljannes]
+        user_ids = activity["user_id"].unique()
+        earlierusers = 0
+        laterusers = 0
+        for user_id in user_ids:
+            if len(early[early["user_id"] == user_id].index) > 0:
+                earlierusers += 1
+            if len(later[later["user_id"] == user_id].index) > 0:
+                laterusers += 1
+        earlier_activity = np.append(earlier_activity, earlierusers)
+        later_activity = np.append(later_activity, laterusers)
+    return earlier_activity, later_activity
+
+def compute_earlier_and_later_time_spent_on_exams(df:pd.DataFrame, courses, first_portion:float=1/4):
+    """
+    Note: the datatype of "ts" column in "df" is assumed to be datetime
+
+    Inputs:
+        df: pandas Dataframe of all moodle activity
+        courses: numpy array or list of all courses to be included
+            each item in the array/list is expected to be a tuple of the following format (course_id, start, end)
+            where "course_id", "start" and "end" are the id, start time and end time of a course respectively
+            the datatype of "start" and "end" are expected to be datetime
+        first_portion: a float in exclusive range [0, 1] designating the portion of overall course duration to be designated for early activity, default 1/4 == 0.25
+    
+    Outputs:
+        earlier_activity: numpy array of total time spent on exams in the earlier portion of a course
+        later_activity: numpy array of total time spent on exams in the later portion of a course
+    """
+    if first_portion >= 1 or first_portion <= 0:
+        raise ValueError("Input 'first portion' must be in exclusive range [0, 1]")
+    df1 = df[df["event_name"].isin(["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"])]
+    earlier_activity = np.empty(shape=0)
+    later_activity = np.empty(shape=0)
+    for course in courses:
+        activity = df1[df1["file_id"] == course[0]]
+        neljannes = ((course[2]-course[1]))*first_portion
+        early = activity[activity["ts"]-course[1] <= neljannes]
+        later = activity[activity["ts"]-course[1] > neljannes]
         user_ids = activity["user_id"].unique()
         for i in user_ids:
             early_activity = early[early["user_id"] == i].sort_values(by=["ts"]).to_numpy()
@@ -71,7 +114,7 @@ def compute_earlier_and_later_time_spent_on_exams(df:pd.DataFrame, file_ids, fir
             start_time = None
             if len(early_activity) > 0:
                 for l in early_activity:
-                    if l[7] == "Tenttiin vastaaminen aloitettu":#Kuvaus
+                    if l[6] == "Tenttiin vastaaminen aloitettu":#event_name
                         if counter == 0:
                             start_time = l[2]
                         counter += 1
@@ -84,7 +127,7 @@ def compute_earlier_and_later_time_spent_on_exams(df:pd.DataFrame, file_ids, fir
             total_time = 0
             if len(late_activity) > 0:
                 for l in late_activity:
-                    if l[7] == "Tenttiin vastaaminen aloitettu":#Kuvaus
+                    if l[6] == "Tenttiin vastaaminen aloitettu":#event_name
                         if counter == 0:
                             start_time = l[2]
                         counter += 1
