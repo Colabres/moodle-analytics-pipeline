@@ -1,6 +1,6 @@
 import polars as pl
 
-def get_ids(data: pl.DataFrame) -> pl.DataFrame:
+def get_ids_dropsome(data: pl.DataFrame) -> pl.DataFrame:
     # Replaces 'Kuvaus' column with user id's extracted from kuvaus. Also drops 'Alkuperä' column.
     descriptions = ["The user with id", "Käyttäjä"]
     labels_alt = "|".join(map(pl.escape_regex, descriptions))
@@ -16,7 +16,7 @@ def get_ids(data: pl.DataFrame) -> pl.DataFrame:
           .fill_null("")
           .str.extract(pattern, 1)
           .alias("Kayttaja_id")
-          ).drop(["Kuvaus", "Alkuperä"])
+          ).drop(["Kuvaus", "Alkuperä"]) # pitää lisätä vielä muutama sarake
 
 def find_ids(data: pl.DataFrame, names: list) -> pl.DataFrame:
     # finds id's associated with given list of event names
@@ -94,12 +94,17 @@ def create_activity(data: pl.DataFrame) -> pl.DataFrame:
         .alias("Aktiivinen")
     )
 
-def pipeline() -> pl.DataFrame:
-    data = pl.read_csv("ALL_logs_kurssidata.csv", separator=";")
-    data = get_ids(data)
+def to_datetime(data: pl.DataFrame) -> pl.DataFrame:
+    # Converts 'Aika' column data type to datetime. NaT for invalid rows.
+    return data.with_columns(pl.col('Aika')
+                             .str.strptime(pl.Datetime, format='%d.%m.%Y, %H.%M.%S', strict=False)
+                             .alias('Aika'))
+
+def pipeline(filename: str) -> pl.DataFrame:
+    data = pl.read_csv(filename, separator=";")
+    data = get_ids_dropsome(data)
     data = drop_admins(data)
     data = create_activity(data)
+    data = to_datetime(data)
     return data
 
-#example of use
-pipeline().write_csv("preprocessed_logs_kurssidata.csv")
