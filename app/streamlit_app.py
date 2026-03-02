@@ -11,6 +11,7 @@ import hashlib
 
 from src.ingest import transfer_to_db
 from src.db import connect, fetch_events_by_file
+from src.control_panel import render_control_panel
 
 st.set_page_config(page_title="Moodle Log Explorer", layout="wide")
 st.title("Moodle Log Explorer")
@@ -103,3 +104,43 @@ if st.button("Run Kuvaus filter", type="primary"):
 
     st.subheader("Filtered Preview")
     st.dataframe(filtered_df.head(200), use_container_width=True)
+
+# -----------------------------
+# Analytics Control Panel
+# -----------------------------
+st.divider()
+st.header("Analytics")
+
+from src.analytics import plot_daily_activity
+from src.event_buckets import expand_buckets
+
+PLOT_REGISTRY = {
+    "daily_activity": plot_daily_activity,
+}
+
+cfg = render_control_panel()
+
+if cfg.get("run_clicked"):
+    event_names = expand_buckets(cfg.get("buckets", []))
+
+    if not cfg.get("plots"):
+        st.warning("Select at least one plot.")
+    else:
+        with connect() as conn:
+            for plot_id in cfg["plots"]:
+                fn = PLOT_REGISTRY.get(plot_id)
+
+                if fn is None:
+                    st.error(f"Plot not implemented: {plot_id}")
+                    continue
+
+                st.subheader("Daily activity (events per day)")
+
+                fn(
+                    conn,
+                    cfg["start_date"],
+                    cfg["end_date"],
+                    event_names,
+                    file_id=None,
+                    show_table=True,
+                )
