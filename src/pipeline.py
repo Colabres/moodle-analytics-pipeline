@@ -71,7 +71,8 @@ def drop_admins(data: pl.DataFrame) -> pl.DataFrame:
         'Palautus on arvioitu.',
         'Käyttäjä poistettu kurssilta',
         'Kaikki palautukset ladatataan',
-        'Kysymys siirretty'
+        'Kysymys siirretty',
+        'Rooli määrätty'
     ]
     admin_ids = find_ids(data, admin_names)
     new_data = data.filter(~pl.col("Kayttaja_id").is_in(admin_ids))
@@ -107,4 +108,5 @@ def pipeline(filename: str) -> pl.DataFrame:
     data = create_activity(data)
     data = to_datetime(data)
     return data
+
 
