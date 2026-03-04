@@ -3,7 +3,63 @@
 # Keep strings exactly matching moodle.event.event_name.
 
 EVENT_BUCKETS: dict[str, list[str]] = {
-    # 1) Admin activity
+    # 1) Moodle page views
+    "Moodle page views": [
+        'Kurssi nähty',
+        'Osio katsottu',
+        'Kurssin aktiviteettien suoritus -asetuksia on päivitetty',
+        'Osallistujalista nähty',
+        'Kurssin osallistujaraportti nähty',
+        'Käyttäjäprofiili katsottu',
+        'Kurssin moduuli nähty',
+        'Keskustelu katsottu',
+        'Kurssimoduulin esiintymien lista katsottu',
+        'Palautuksen tila on nähty'
+    ],
+
+    # 2) Assignments & Exams
+    "Quizzes / Exams": [
+        'Käyttäjä arvosteltu',
+        'Käyttäjän arviointiraportti nähty',
+        'Kommentti luotu', #Palautukseen lisätty kommentti
+        'Palautuslomake on nähty',
+        'Palautus on lähetetty',
+        'Palaute on nähty',
+        'Palautuksen tila on päivitetty',
+        'Tentin suorituskerta katsottu', #Valtava logi
+        'Tentin suorituskerta päivitetty', #Valtava logi
+        'Tentin suorituskerta tallennettu automaattisesti',
+        'Suorituskerran yhteenveto katsottu',
+        'Tenttivastaus palautettu',
+        'Tenttiin vastaaminen aloitettu',
+        'Tiedosto on lisätty.',
+        'Palautus on luotu',
+        'Käyttäjä on tallentanut palautuksensa'
+    ],
+
+    # 3) Forums & Discussions
+    "Forums & Discussions": [
+        'Jotain sisältöä on lähetetty.',
+        'Keskustelu luotiin',
+        'Keskustelualue tilattiin',
+        'Tilaus luotiin',
+        'Luettujen viestien seuranta pois käytöstä',
+        'Keskustelualueen tilaus poistettiin',
+        'Kommentti luotiin',
+        'Luettujen viestien seuranta käytössä'
+    ],
+
+    # 4) Misc
+    "Misc": [
+        'Ryhmän jäsen lisättiin',
+        'Ryhmän jäsen poistettiin',
+        'Osio suoritettu',
+        'Palaute lähetetty',
+        'Valinta on tehty', #Ryhmävalinta
+        'Valinta on poistettu', #Ryhmävalinta
+        'Grade overview report viewed'
+    ],
+    # 5) Admin activity
     "Admin activity": [
         'Participation report viewed',
         'Arviointitaulukko on nähty'
@@ -48,42 +104,15 @@ EVENT_BUCKETS: dict[str, list[str]] = {
         'Rooli määrätty',
         'Käyttäjä rekisteröity kurssille',
         'Tapahtuma päivitetty',
-        'Kurssikuvaus nähty'
-    ],
-
-    # 2) Moodle page views
-    "Moodle page views": [
-        'Kurssi nähty',
-        'Osio katsottu',
-        'Kurssin aktiviteettien suoritus -asetuksia on päivitetty',
-        'Osallistujalista nähty',
-        'Kurssin osallistujaraportti nähty'
-    ],
-
-    # 3) Assignments & Submissions
-    "Assignments & Submissions": [
-        'Käyttäjä arvosteltu'
-    ],
-
-    # 5) Quizzes / Exams
-    "Quizzes / Exams": [
-        
-    ],
-
-    # 6) Forums & Discussions
-    "Forums & Discussions": [
-
-    ],
-
-    # 7) Reports & Logs Viewed
-    "Reports & Logs Viewed": [
-
-    ],
-
-    # 8) Misc
-    "Misc": [
-        'Ryhmän jäsen lisättiin',
-        'Ryhmän jäsen poistettiin'
+        'Kurssikuvaus nähty',
+        'Tapahtuma poistettu',
+        'Kurssin tiedot päivitettiin',
+        'Roolia ei ole määritetty',
+        'Käyttäjän rekisteröitymistila päivitetty',
+        'Kohde poistettu',
+        'Kohde luotu',
+        'Palautus poistettu',
+        'Nähty palautuksen poistovahvistus'
     ],
 }
 
