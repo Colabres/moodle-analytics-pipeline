@@ -3,117 +3,116 @@
 # Keep strings exactly matching moodle.event.event_name.
 
 EVENT_BUCKETS: dict[str, list[str]] = {
-    # 1) Course Structure & Management
-    "Course Structure & Management": [
-        "Kurssi nähty",
-        "Kurssikuvaus nähty",
-        "Kurssin tiedot päivitettiin",
-        "Kurssin varmuuskopio luotu",
-        "Kurssin moduuli luotu",
-        "Kurssin moduuli päivitetty",
-        "Kurssin moduuli poistettu",
-        "Kurssin moduuli nähty",
-        "Kurssin osio luotiin",
-        "Kurssin osio päivitettiin",
-        "Kurssin osio poistettiin",
-        "Osio katsottu",
-        "Osion sekoitus päivitetty",
+    # 1) Moodle page views
+    "Moodle page views": [
+        'Kurssi nähty',
+        'Osio katsottu',
+        'Kurssin aktiviteettien suoritus -asetuksia on päivitetty',
+        'Osallistujalista nähty',
+        'Kurssin osallistujaraportti nähty',
+        'Käyttäjäprofiili katsottu',
+        'Kurssin moduuli nähty',
+        'Keskustelu katsottu',
+        'Kurssimoduulin esiintymien lista katsottu',
+        'Palautuksen tila on nähty'
     ],
 
-    # 2) Enrollment & Users
-    "Enrollment & Users": [
-        "Käyttäjä rekisteröity kurssille",
-        "Käyttäjä poistettu kurssilta",
-        "Käyttäjän rekisteröitymistila päivitetty",
-        "Käyttäjäprofiili katsottu",
-        "Rooli määrätty",
-        "Roolia ei ole määritetty",
-        "Ryhmän jäsen lisättiin",
-        "Ryhmän jäsen poistettiin",
-    ],
-
-    # 3) Assignments & Submissions
-    "Assignments & Submissions": [
-        "Palautus on luotu",
-        "Palautus on lähetetty",
-        "Palautus on arvioitu",
-        "Palautus poistettu",
-        "Palautuksen tila on nähty",
-        "Palautuksen tila on päivitetty",
-        "Palautuslomake on nähty",
-        "Kaikki palautukset ladatataan",
-        "Käyttäjä on tallentanut palautuksensa",
-    ],
-
-    # 4) Grading & Assessment
-    "Grading & Assessment": [
-        "Arviointikohde päivitetty",
-        "Arviointikohde poistettu",
-        "Arvosana poistettu",
-        "Grade overview report viewed",
-        "Nähty arvioijan raportti",
-        "Käyttäjä arvosteltu",
-        "Käyttäjän arviointiraportti nähty",
-        "Arvosanajakauma katsottu",
-    ],
-
-    # 5) Quizzes / Exams
+    # 2) Assignments & Exams
     "Quizzes / Exams": [
-        "Tenttiin vastaaminen aloitettu",
-        "Tenttivastaus palautettu",
-        "Tentin suorituskerta katsottu",
-        "Tentin suorituskerta tallennettu automaattisesti",
-        "Tentin suorituskerta arvioitu uudelleen",
-        "Tentin arviointi päivitetty",
-        "Tentin raporttia katsottu",
-        "Tentin muokkaussivua katsottu",
-        "Tentin esikatselu aloitettu",
-        "Tentin poikkeuspääsy luotu",
-        "Tentin poikkeuspääsy poistettu",
+        'Käyttäjä arvosteltu',
+        'Käyttäjän arviointiraportti nähty',
+        'Kommentti luotu', #Palautukseen lisätty kommentti
+        'Palautuslomake on nähty',
+        'Palautus on lähetetty',
+        'Palaute on nähty',
+        'Palautuksen tila on päivitetty',
+        'Tentin suorituskerta katsottu', #Valtava logi
+        'Tentin suorituskerta päivitetty', #Valtava logi
+        'Tentin suorituskerta tallennettu automaattisesti',
+        'Suorituskerran yhteenveto katsottu',
+        'Tenttivastaus palautettu',
+        'Tenttiin vastaaminen aloitettu',
+        'Tiedosto on lisätty.',
+        'Palautus on luotu',
+        'Käyttäjä on tallentanut palautuksensa'
     ],
 
-    # 6) Forums & Discussions
+    # 3) Forums & Discussions
     "Forums & Discussions": [
-        "Keskustelu luotiin",
-        "Keskustelu katsottu",
-        "Keskustelualue tilattiin",
-        "Keskustelualueen tilaus poistettiin",
-        "Kommentti luotiin",
+        'Jotain sisältöä on lähetetty.',
+        'Keskustelu luotiin',
+        'Keskustelualue tilattiin',
+        'Tilaus luotiin',
+        'Luettujen viestien seuranta pois käytöstä',
+        'Keskustelualueen tilaus poistettiin',
+        'Kommentti luotiin',
+        'Luettujen viestien seuranta käytössä'
     ],
 
-    # 7) Reports & Logs Viewed
-    "Reports & Logs Viewed": [
-        "Lokiraportti katsottu",
-        "Raporttia katsottu",
-        "Participation report viewed",
-        "Statistics report viewed",
-        "Kurssin osallistujaraportti nähty",
-        "Osallistujalista nähty",
+    # 4) Misc
+    "Misc": [
+        'Ryhmän jäsen lisättiin',
+        'Ryhmän jäsen poistettiin',
+        'Osio suoritettu',
+        'Palaute lähetetty',
+        'Valinta on tehty', #Ryhmävalinta
+        'Valinta on poistettu', #Ryhmävalinta
+        'Grade overview report viewed'
     ],
-
-    # 8) Content Interaction / Viewing
-    "Content Interaction / Viewing": [
-        "Kurssimoduulin esiintymien lista katsottu",
-        "Kohde luotu",
-        "Kohde poistettu",
-        "Palaute on nähty",
-        "Kurssi nähty",
-        "Tiedosto on lisätty",
-        "Jotain sisältöä on lähetetty",
-    ],
-
-    # 9) Misc / System
-    "Misc / System": [
-        "Tapahtuma luotu",
-        "Tapahtuma päivitetty",
-        "Tapahtuma poistettu",
-        "Tilaus luotiin",
-        "Valinta on tehty",
-        "Valinta on poistettu",
-        "Suorituskerta katsottu uudelleen",
-        "Suorituskerran yhteenveto katsottu",
-        "Luettujen viestien seuranta käytössä",
-        "Luettujen viestien seuranta pois käytöstä",
+    # 5) Admin activity
+    "Admin activity": [
+        'Participation report viewed',
+        'Arviointitaulukko on nähty',
+        'Tentin raporttia katsottu',
+        'Lokiraportti katsottu',
+        'Tapahtuma luotu',
+        'Paikka luotu',
+        'Kurssin moduuli luotu',
+        'Tentin poikkeuspääsy poistettu',
+        'Osion sekoitus päivitetty',
+        'Tentin arviointi päivitetty',
+        'Kysymys luotu',
+        'Aktiviteettiraportti nähty',
+        'Arviointilomake on nähty',
+        'Kysymyskategoria luotu',
+        'Tentin muokkaussivua katsottu',
+        'Arviointikohde luotu',
+        'Kurssin moduuli päivitetty',
+        'Arviointikohde päivitetty',
+        'Kurssin varmuuskopio luotu',
+        'Paikka poistettu',
+        'Nähty arvioijan raportti',
+        'Statistics report viewed',
+        'Kurssin osio päivitettiin',
+        'Kysymyskategoria katsottu',
+        'Tentin poikkeuspääsy luotu',
+        'Kysymys katsottu',
+        'Kysymys päivitetty',
+        'Kurssin osio luotiin',
+        'Kysymys poistettu',
+        'Kurssin moduuli poistettu',
+        'Tentin suorituskerta arvioitu uudelleen',
+        'Suorituskerta katsottu uudelleen',
+        'Tentin esikatselu aloitettu',
+        'Arviointikohde poistettu',
+        'Kurssin osio poistettiin',
+        'Arvosana poistettu',
+        'Palautus on arvioitu.',
+        'Käyttäjä poistettu kurssilta',
+        'Kaikki palautukset ladatataan',
+        'Kysymys siirretty',
+        'Rooli määrätty',
+        'Käyttäjä rekisteröity kurssille',
+        'Tapahtuma päivitetty',
+        'Kurssikuvaus nähty',
+        'Tapahtuma poistettu',
+        'Kurssin tiedot päivitettiin',
+        'Roolia ei ole määritetty',
+        'Käyttäjän rekisteröitymistila päivitetty',
+        'Kohde poistettu',
+        'Kohde luotu',
+        'Palautus poistettu',
+        'Nähty palautuksen poistovahvistus'
     ],
 }
 

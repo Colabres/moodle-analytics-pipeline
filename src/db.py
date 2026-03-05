@@ -53,3 +53,53 @@ def fetch_events_by_file(cur, file_id: int, limit: int = 200):
         (file_id, limit),
     )
     return cur.fetchall()
+
+def ensure_users(cur, user_ids: list[int]) -> int:
+    """
+    Inserts user_ids into moodle.user_dim if missing.
+    Returns how many rows were attempted (not exactly inserted).
+    """
+    rows = [(int(uid),) for uid in user_ids]
+    cur.executemany(
+        """
+        INSERT INTO moodle.user_dim (user_id)
+        VALUES (%s)
+        ON CONFLICT (user_id) DO NOTHING
+        """,
+        rows,
+    )
+    return len(rows)
+
+def set_users_active(cur, active_user_ids: list[int]) -> int:
+    rows = [(int(uid),) for uid in active_user_ids]
+    cur.executemany(
+        """
+        UPDATE moodle.user_dim
+        SET is_active = TRUE
+        WHERE user_id = %s
+        """,
+        rows,
+    )
+    return len(rows)    
+
+def set_users_admin(cur, admin_user_ids: list[int]) -> int:
+    rows = [(int(uid),) for uid in admin_user_ids]
+    cur.executemany(
+        """
+        UPDATE moodle.user_dim
+        SET is_admin = TRUE
+        WHERE user_id = %s
+        """,
+        rows,
+    )
+    return len(rows)
+
+def fetch_admin_user_ids(cur) -> set[int]:
+    cur.execute(
+        """
+        SELECT user_id
+        FROM moodle.user_dim
+        WHERE is_admin = TRUE
+        """
+    )
+    return {int(r[0]) for r in cur.fetchall() if r[0] is not None}

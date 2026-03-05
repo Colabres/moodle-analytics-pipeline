@@ -22,6 +22,12 @@ CREATE TABLE IF NOT EXISTS moodle.event (
   origin       TEXT                     -- Alkuperä
 );
 
+CREATE TABLE IF NOT EXISTS moodle.user_dim (
+  user_id   BIGINT PRIMARY KEY,
+  is_admin  BOOLEAN NOT NULL DEFAULT FALSE,
+  is_active BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE INDEX IF NOT EXISTS ix_event_ts ON moodle.event(ts);
 CREATE INDEX IF NOT EXISTS ix_event_file_id ON moodle.event(file_id);
 CREATE INDEX IF NOT EXISTS ix_event_user_id ON moodle.event(user_id);

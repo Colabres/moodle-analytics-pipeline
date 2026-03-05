@@ -11,7 +11,7 @@ import hashlib
 from src.ingest import transfer_to_db
 from src.db import connect, fetch_events_by_file
 from src.control_panel import render_control_panel
-
+from src.event_buckets import EVENT_BUCKETS
 st.set_page_config(page_title="Moodle Log Explorer", layout="wide")
 st.title("Moodle Log Explorer")
 
@@ -64,19 +64,53 @@ c2.metric("Inserted", inserted)
 c3.metric("Skipped", skipped)
 
 if file_id != 0:
+    admin_bucket_names = EVENT_BUCKETS.get("Admin activity", [])
+
     with connect() as conn:
         with conn.cursor() as cur:
+
+            # normal preview
             rows = fetch_events_by_file(cur, file_id=file_id, limit=200)
 
+            # DEBUG: events whose event_name is in the "Admin activity" bucket
+            # plus whether that user_id is marked admin in user_dim
+            cur.execute("""
+                SELECT e.id, e.ts, e.user_id, u.is_admin,
+                       e.context, e.component, e.event_name, e.description, e.origin
+                FROM moodle.event e
+                LEFT JOIN moodle.user_dim u
+                  ON e.user_id = u.user_id
+                WHERE e.file_id = %s
+                  AND e.event_name = ANY(%s)
+                ORDER BY e.id
+                LIMIT 200
+            """, (file_id, admin_bucket_names))
+
+            admin_bucket_event_rows = cur.fetchall()
+
+    # normal preview
     preview_df = pl.DataFrame(
         rows,
-        schema=["id", "ts", "user_id", "context", "component", "event_name", "description", "origin"]
+        schema=["id","ts","user_id","context","component","event_name","description","origin"]
     )
+    st.subheader("Event preview")
     st.dataframe(preview_df.to_pandas(), use_container_width=True)
+
+    # admin-bucket debug table
+    admin_bucket_df = pl.DataFrame(
+        admin_bucket_event_rows,
+        schema=["id","ts","user_id","is_admin","context","component","event_name","description","origin"]
+    )
+
+    st.subheader("DEBUG: events with event_name in 'Admin activity' bucket (should be empty OR show new ids)")
+    st.dataframe(admin_bucket_df.to_pandas(), use_container_width=True)
+
 else:
     st.warning("No rows inserted.")
 
-
+if st.button("Reset session"):
+    st.session_state.clear()
+    st.rerun()
 
 # -----------------------------
 # Analytics Control Panel
