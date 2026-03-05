@@ -1,21 +1,21 @@
-from typing import Tuple, Optional
-import pandas as pd
+from typing import Tuple, Optional, Mapping, Any
+import polars as pl
 import streamlit as st
-from src.parse import parse_aika, extract_user_id
+from src.parse import parse_aika_pl, extract_user_id_pl
 from src.db import connect, insert_ingest_file, insert_events
 
 
-def _get_optional_str(row: pd.Series, col: str) -> Optional[str]:
+
+def _get_optional_str(row: Mapping[str, Any], col: str) -> Optional[str]:
     """
     Safely return a string value from a row.
     Returns None if column missing, NaN, or empty.
     """
-    if col not in row.index:
+    if col not in row:
         return None
 
     value = row[col]
-
-    if value is None or (isinstance(value, float) and pd.isna(value)):
+    if value is None:
         return None
 
     value = str(value).strip()
@@ -25,7 +25,9 @@ def _get_optional_str(row: pd.Series, col: str) -> Optional[str]:
     return value
 
 
-def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
+
+
+def transfer_to_db(df: pl.DataFrame, filename: str) -> Tuple[int, int, int]:
     """
     Transfer dataframe rows into Postgres.
 
@@ -43,22 +45,32 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
     if "Tapahtuman nimi" not in df.columns:
         raise ValueError("Missing required column 'Tapahtuman nimi'.")
 
-    df2 = df.copy()
+    
 
-    # 1️⃣ Parse timestamps
-    df2["ts"] = parse_aika(df2["Aika"].fillna(""))
-    valid_mask = df2["ts"].notna()
-    skipped_rows = int((~valid_mask).sum())
-    df2 = df2[valid_mask]
+    # 1️⃣ Parse timestamps (Polars)
+    df = df.with_columns(
+        parse_aika_pl(pl.col("Aika").fill_null("")).alias("ts")
+    )
 
-    if len(df2) == 0:
+    # count rows with invalid timestamp
+    invalid_ts = df.filter(pl.col("ts").is_null()).height
+    skipped_rows = int(invalid_ts)
+
+    # keep only valid timestamps
+    df = df.filter(pl.col("ts").is_not_null())
+
+    if df.height == 0:
         return 0, 0, skipped_rows
 
-    # 2️⃣ Extract strict numeric user_id from Kuvaus
-    if "Kuvaus" in df2.columns:
-        df2["user_id"] = df2["Kuvaus"].apply(extract_user_id)
+    # 2️⃣ Extract strict numeric user_id from Kuvaus (Polars)
+    if "Kuvaus" in df.columns:
+        df = df.with_columns(
+            extract_user_id_pl(pl.col("Kuvaus")).alias("user_id")
+        )
     else:
-        df2["user_id"] = None
+        df = df.with_columns(
+            pl.lit(None).cast(pl.Int64).alias("user_id")
+        )
 
     IGNORE_VALUES_SET = {
         179434, 179631, 44240, 14552, 14294, 4688, 54402,
@@ -66,26 +78,34 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
         48118,0,-1
     }
 
-    before = len(df2)
+    before = df.height
 
-    df2 = df2[
-        df2["user_id"].notna() &                 # remove NaN
-        ~df2["user_id"].isin(IGNORE_VALUES_SET)  # remove blacklisted IDs
-    ]
+    df = df.filter(
+        pl.col("user_id").is_not_null() &
+        (~pl.col("user_id").is_in(list(IGNORE_VALUES_SET)))
+    )
 
-    filtered_blacklist = before - len(df2)
-    skipped_rows += filtered_blacklist
+    filtered_blacklist = before - df.height
+    skipped_rows += int(filtered_blacklist)
 
+    # 2.5️⃣ Drop rows missing event name (Polars)
+    before_event = df.height
+    df = df.filter(
+        pl.col("Tapahtuman nimi").is_not_null() &
+        (pl.col("Tapahtuman nimi").cast(pl.Utf8).str.strip_chars() != "")
+    )
+    skipped_rows += int(before_event - df.height)
 
-    # 3️⃣ Build rows for DB insert
+    # 3️⃣ Build rows for DB insert (Polars -> Python rows)
     rows = []
-    for _, r in df2.iterrows():
-        ts = r["ts"].to_pydatetime()
-        user_id = r["user_id"]  # int or None
-        
-        if user_id is None or pd.isna(user_id):
-            user_id = None
-        else:
+
+    # iterate as dicts: {"ts": ..., "user_id": ..., ...}
+    for r in df.to_dicts():
+        ts = r.get("ts")  # python datetime, or None
+        user_id = r.get("user_id")  # int or None
+
+        # ensure python int or None
+        if user_id is not None:
             user_id = int(user_id)
 
         context = _get_optional_str(r, "Tapahtuman konteksti")
@@ -94,7 +114,9 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
         description = _get_optional_str(r, "Kuvaus")
         origin = _get_optional_str(r, "Alkuperä")
 
-        if not event_name:
+
+        # ts should be datetime already; keep guard anyway
+        if ts is None:
             skipped_rows += 1
             continue
 
@@ -142,6 +164,8 @@ def transfer_to_db(df: pd.DataFrame, filename: str) -> Tuple[int, int, int]:
                     cur.execute("RELEASE SAVEPOINT sp_batch")
 
         conn.commit()
+
+
 
     if bad_rows:
         st.warning(f"{len(bad_rows)} row(s) failed to insert. Showing first 3:")

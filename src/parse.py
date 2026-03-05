@@ -1,33 +1,16 @@
-import re
-import pandas as pd
+import polars as pl
 
-# Strict: only accept exactly "... user with id '<number>' ..."
-USER_WITH_ID_PATTERN = re.compile(
-    r"user\s+with\s+id\s+'(\d{1,6})'",
-    flags=re.IGNORECASE
-)
+# Polars: parse Moodle time strings into Datetime (NaT -> null)
+def parse_aika_pl(expr: pl.Expr) -> pl.Expr:
+    return expr.str.strptime(pl.Datetime, format="%d.%m.%Y, %H.%M.%S", strict=False)
 
-def parse_aika(series: pd.Series) -> pd.Series:
-    """
-    Parse Moodle time strings into datetime.
-    Expected example: '3.02.2026, 11.48.49'
-    Returns pandas datetime with NaT for invalid rows.
-    """
-    return pd.to_datetime(series, format="%d.%m.%Y, %H.%M.%S", errors="coerce")
-
-def extract_user_id(description: str):
-    if not isinstance(description, str) or not description:
-        return None
-
-    m = USER_WITH_ID_PATTERN.search(description)
-    if not m:
-        return None
-
-    s = m.group(1)
-    
-    # Debug rule: reject IDs longer than 6 digits
-    if len(s) > 6:
-        print(f"[DEBUG] Rejected suspicious user_id: {s}")
-        return None
-
-    return int(s)
+# Polars: extract user id from Kuvaus (strict English rule like your pandas version)
+# Returns Int64 or null
+def extract_user_id_pl(expr: pl.Expr) -> pl.Expr:
+    # Same rule as USER_WITH_ID_PATTERN: user with id '<1..6 digits>'
+    pattern = r"user\s+with\s+id\s+'(\d{1,6})'"
+    return (
+        expr.fill_null("")
+            .str.extract(pattern, 1)
+            .cast(pl.Int64, strict=False)
+    )
