@@ -5,13 +5,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import streamlit as st
 import polars as pl
+import pandas as pd
 import io
 import hashlib
 
 from src.ingest import transfer_to_db
 from src.db import connect, fetch_events_by_file
-from src.control_panel import render_control_panel
+from src.control_panel_new import render_control_panel
 from src.event_buckets import EVENT_BUCKETS
+
 st.set_page_config(page_title="Moodle Log Explorer", layout="wide")
 st.title("Moodle Log Explorer")
 
@@ -112,42 +114,101 @@ if st.button("Reset session"):
     st.session_state.clear()
     st.rerun()
 
+
 # -----------------------------
 # Analytics Control Panel
 # -----------------------------
 st.divider()
 st.header("Analytics")
 
-from src.analytics import plot_daily_activity
+from src.analytics import (
+    plot_daily_activity,
+    plot_number_of_submissions_in_first_and_later_quartiles_by_user_id,
+    plot_hours_spent_on_one_or_more_exams_at_a_time,
+    plot_hourly_activity,    
+    plot_weekly_activity,
+    plot_component_distribution,
+    plot_top_events,
+
+)
+
 from src.event_buckets import expand_buckets
 
 PLOT_REGISTRY = {
     "daily_activity": plot_daily_activity,
+    "hourly_activity": plot_hourly_activity,
+    "weekly_trend": plot_weekly_activity,
+    "component_distribution": plot_component_distribution,
+    "top_event_types": plot_top_events,
 }
-
+PLOT_TITLES = {
+    "daily_activity": "Daily activity (events per day)",
+    "hourly_activity": "Hourly activity",
+    "weekly_trend": "Weekly activity trend",
+    "component_distribution": "Component distribution",
+    "top_event_types": "Top event types",
+}
+ADDITIONAL_ANALYSIS_REGISTRY = {
+    "submissions_first_vs_later_quartile": plot_number_of_submissions_in_first_and_later_quartiles_by_user_id,
+    "exam_hours_first_vs_later_quartile": plot_hours_spent_on_one_or_more_exams_at_a_time,
+}
 cfg = render_control_panel()
+standard = cfg["standard"]
+additional = cfg["additional"]
 
-if cfg.get("run_clicked"):
-    event_names = expand_buckets(cfg.get("buckets", []))
+if standard.get("run_clicked"):
+    event_names = expand_buckets(standard.get("buckets", []))
 
-    if not cfg.get("plots"):
+    if not standard.get("plots"):
         st.warning("Select at least one plot.")
     else:
         with connect() as conn:
-            for plot_id in cfg["plots"]:
+            for plot_id in standard["plots"]:
                 fn = PLOT_REGISTRY.get(plot_id)
 
                 if fn is None:
                     st.error(f"Plot not implemented: {plot_id}")
                     continue
 
-                st.subheader("Daily activity (events per day)")
+                title = PLOT_TITLES.get(plot_id, plot_id.replace("_", " ").title())
+                st.subheader(title)
 
                 fn(
                     conn,
-                    cfg["start_date"],
-                    cfg["end_date"],
+                    standard["start_date"],
+                    standard["end_date"],
                     event_names,
+                    file_id=None,
+                    show_table=True,
+                )
+
+# -----------------------------
+# Additional analyses
+# -----------------------------
+
+if additional.get("run_clicked"):
+    if not additional.get("selected"):
+        st.warning("Select at least one additional analysis.")
+    else:
+        with connect() as conn:
+            for analysis_id in additional["selected"]:
+                fn = ADDITIONAL_ANALYSIS_REGISTRY.get(analysis_id)
+
+                if fn is None:
+                    st.error(f"Additional analysis not implemented: {analysis_id}")
+                    continue
+
+                if analysis_id == "submissions_first_vs_later_quartile":
+                    st.subheader("Submissions: first vs later quartile")
+                elif analysis_id == "exam_hours_first_vs_later_quartile":
+                    st.subheader("Exam hours: first vs later quartile")
+                else:
+                    st.subheader(analysis_id.replace("_", " ").title())
+
+                fn(
+                    conn,
+                    standard["start_date"],
+                    standard["end_date"],
                     file_id=None,
                     show_table=True,
                 )
