@@ -12,6 +12,7 @@ from src.db import (
     fetch_admin_user_ids,
     set_users_active,
     set_users_admin,
+    fetch_all_file_ids
 )
 
 
@@ -50,8 +51,18 @@ def _get_optional_str(row: Mapping[str, Any], col: str) -> Optional[str]:
 
     return value
 
+def get_all_file_ids() -> set[int]:
+    """
+    Returns all existing file_id values from moodle.ingest_file.
+    These currently act as Course IDs.
+    """
+    with connect() as conn:
+        with conn.cursor() as cur:
+            existing_ids = fetch_all_file_ids(cur)
 
-def transfer_to_db(df: pl.DataFrame, filename: str) -> Tuple[int, int, int]:
+    return existing_ids
+
+def transfer_to_db(df: pl.DataFrame,file_id: int ,filename: str) -> Tuple[int, int, int]:
     """
     Transfer dataframe rows into Postgres.
 
@@ -130,7 +141,7 @@ def transfer_to_db(df: pl.DataFrame, filename: str) -> Tuple[int, int, int]:
     with connect() as conn:
         with conn.cursor() as cur:
             # Create ingest_file row
-            file_id = insert_ingest_file(cur, filename=filename)
+            file_id = insert_ingest_file(cur,file_id=file_id ,filename=filename)
 
             # Update moodle.user_dim (3 steps)
             if all_user_ids:
@@ -222,3 +233,4 @@ def transfer_to_db(df: pl.DataFrame, filename: str) -> Tuple[int, int, int]:
             st.write("Row:", row)
 
     return file_id, inserted_ok, skipped_rows + len(bad_rows)
+

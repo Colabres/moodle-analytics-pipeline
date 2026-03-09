@@ -12,14 +12,14 @@ def connect():
     return psycopg.connect(get_database_url())
 
 
-def insert_ingest_file(cur, filename: str) -> int:
+def insert_ingest_file(cur, file_id: int, filename: str) -> int:
     cur.execute(
         """
-        INSERT INTO moodle.ingest_file (filename)
-        VALUES (%s)
+        INSERT INTO moodle.ingest_file (file_id, filename)
+        VALUES (%s, %s)
         RETURNING file_id
         """,
-        (filename,),
+        (file_id, filename),
     )
     return cur.fetchone()[0]
 
@@ -100,6 +100,15 @@ def fetch_admin_user_ids(cur) -> set[int]:
         SELECT user_id
         FROM moodle.user_dim
         WHERE is_admin = TRUE
+        """
+    )
+    return {int(r[0]) for r in cur.fetchall() if r[0] is not None}
+
+def fetch_all_file_ids(cur) -> set[int]:
+    cur.execute(
+        """
+        SELECT file_id
+        FROM moodle.ingest_file
         """
     )
     return {int(r[0]) for r in cur.fetchall() if r[0] is not None}

@@ -9,7 +9,7 @@ import pandas as pd
 import io
 import hashlib
 
-from src.ingest import transfer_to_db
+from src.ingest import transfer_to_db, get_all_file_ids
 from src.db import connect, fetch_events_by_file
 from src.control_panel_new import render_control_panel
 from src.event_buckets import EVENT_BUCKETS
@@ -41,23 +41,50 @@ if uploaded is None:
 uploaded_bytes = uploaded.getvalue()
 df = load_csv(io.BytesIO(uploaded_bytes))
 
-fp = session_fingerprint(uploaded_bytes)
+st.info("File uploaded. Please enter Course name and Course ID to start the import.")
 
-# Auto-transfer once per uploaded file (per session)
-if st.session_state.get("last_upload_fp") != fp:
-    st.session_state["last_upload_fp"] = fp
+course_name = st.text_input("Course name", key="course_name_input")
+course_id = st.text_input("Course ID", key="course_id_input")
 
-    try:
-        file_id, inserted, skipped = transfer_to_db(df, uploaded.name)
-        st.session_state["last_file_id"] = file_id
-        st.session_state["last_ingest_stats"] = (inserted, skipped)
-    except Exception as e:
-        st.error(f"Transfer failed: {e}")
-        st.stop()
+run_import = st.button("Start import", type="primary")
+
+if not run_import:
+    st.stop()
+
+if not course_name.strip():
+    st.warning("Please enter Course name before starting import.")
+    st.stop()
+
+if not course_id.strip():
+    st.warning("Please enter Course ID before starting import.")
+    st.stop()
+
+try:
+    course_id_int = int(course_id.strip())
+except ValueError:
+    st.error("Course ID must be numeric.")
+    st.stop()
+
+existing_ids = get_all_file_ids()
+
+if course_id_int in existing_ids:
+    st.error("This Course ID already exists in the database.")
+    st.stop()
+
+try:
+    file_id, inserted, skipped = transfer_to_db(df,course_id_int,course_name)
+    st.session_state["last_file_id"] = file_id
+    st.session_state["last_ingest_stats"] = (inserted, skipped)
+    st.session_state["last_course_id"] = course_id_int
+    st.session_state["last_course_name"] = course_name.strip()
+except Exception as e:
+    st.error(f"Transfer failed: {e}")
+    st.stop()
+
 
 st.subheader("Preview (from database)")
 
-file_id = st.session_state.get("last_file_id", 0)
+file_id = course_id_int
 inserted, skipped = st.session_state.get("last_ingest_stats", (0, 0))
 
 c1, c2, c3 = st.columns(3)
