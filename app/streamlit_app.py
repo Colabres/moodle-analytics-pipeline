@@ -32,114 +32,116 @@ def session_fingerprint(file_bytes: bytes) -> str:
     return hashlib.sha256(file_bytes).hexdigest()
 
 # --- UI ---
+run_import = False
 uploaded = st.file_uploader("Drop a Moodle CSV file here", type=["csv"])
 
 if uploaded is None:
     st.info("Upload a CSV to preview and filter it.")
-    st.stop()
-
-uploaded_bytes = uploaded.getvalue()
-df = load_csv(io.BytesIO(uploaded_bytes))
-
-st.info("File uploaded. Please enter Course name and Course ID to start the import.")
-
-course_name = st.text_input("Course name", key="course_name_input")
-course_id = st.text_input("Course ID", key="course_id_input")
-
-run_import = st.button("Start import", type="primary")
-
-if not run_import:
-    st.stop()
-
-if not course_name.strip():
-    st.warning("Please enter Course name before starting import.")
-    st.stop()
-
-if not course_id.strip():
-    st.warning("Please enter Course ID before starting import.")
-    st.stop()
-
-try:
-    course_id_int = int(course_id.strip())
-except ValueError:
-    st.error("Course ID must be numeric.")
-    st.stop()
-
-existing_ids = get_all_file_ids()
-
-if course_id_int in existing_ids:
-    st.error("This Course ID already exists in the database.")
-    st.stop()
-
-try:
-    file_id, inserted, skipped = transfer_to_db(df,course_id_int,course_name)
-    st.session_state["last_file_id"] = file_id
-    st.session_state["last_ingest_stats"] = (inserted, skipped)
-    st.session_state["last_course_id"] = course_id_int
-    st.session_state["last_course_name"] = course_name.strip()
-except Exception as e:
-    st.error(f"Transfer failed: {e}")
-    st.stop()
-
-
-st.subheader("Preview (from database)")
-
-file_id = course_id_int
-inserted, skipped = st.session_state.get("last_ingest_stats", (0, 0))
-
-c1, c2, c3 = st.columns(3)
-c1.metric("file_id", file_id)
-c2.metric("Inserted", inserted)
-c3.metric("Skipped", skipped)
-
-if file_id != 0:
-    admin_bucket_names = EVENT_BUCKETS.get("Admin activity", [])
-
-    with connect() as conn:
-        with conn.cursor() as cur:
-
-            # normal preview
-            rows = fetch_events_by_file(cur, file_id=file_id, limit=200)
-
-            # DEBUG: events whose event_name is in the "Admin activity" bucket
-            # plus whether that user_id is marked admin in user_dim
-            cur.execute("""
-                SELECT e.id, e.ts, e.user_id, u.is_admin,
-                       e.context, e.component, e.event_name, e.description, e.origin
-                FROM moodle.event e
-                LEFT JOIN moodle.user_dim u
-                  ON e.user_id = u.user_id
-                WHERE e.file_id = %s
-                  AND e.event_name = ANY(%s)
-                ORDER BY e.id
-                LIMIT 200
-            """, (file_id, admin_bucket_names))
-
-            admin_bucket_event_rows = cur.fetchall()
-
-    # normal preview
-    preview_df = pl.DataFrame(
-        rows,
-        schema=["id","ts","user_id","context","component","event_name","description","origin"]
-    )
-    st.subheader("Event preview")
-    st.dataframe(preview_df.to_pandas(), use_container_width=True)
-
-    # admin-bucket debug table
-    admin_bucket_df = pl.DataFrame(
-        admin_bucket_event_rows,
-        schema=["id","ts","user_id","is_admin","context","component","event_name","description","origin"]
-    )
-
-    st.subheader("DEBUG: events with event_name in 'Admin activity' bucket (should be empty OR show new ids)")
-    st.dataframe(admin_bucket_df.to_pandas(), use_container_width=True)
-
 else:
-    st.warning("No rows inserted.")
+    uploaded_bytes = uploaded.getvalue()
+    df = load_csv(io.BytesIO(uploaded_bytes))
 
-if st.button("Reset session"):
-    st.session_state.clear()
-    st.rerun()
+
+if uploaded is not None:
+    st.info("File uploaded. Please enter Course name and Course ID to start the import.")
+
+    course_name = st.text_input("Course name", key="course_name_input")
+    course_id = st.text_input("Course ID", key="course_id_input")
+
+    run_import = st.button("Start import", type="primary")
+
+if run_import:
+    
+
+    if not course_name.strip():
+        st.warning("Please enter Course name before starting import.")
+        st.stop()
+
+    if not course_id.strip():
+        st.warning("Please enter Course ID before starting import.")
+        st.stop()
+
+    try:
+        course_id_int = int(course_id.strip())
+    except ValueError:
+        st.error("Course ID must be numeric.")
+        st.stop()
+
+    existing_ids = get_all_file_ids()
+
+    if course_id_int in existing_ids:
+        st.error("This Course ID already exists in the database.")
+        st.stop()
+
+    try:
+        file_id, inserted, skipped = transfer_to_db(df,course_id_int,course_name)
+        st.session_state["last_file_id"] = file_id
+        st.session_state["last_ingest_stats"] = (inserted, skipped)
+        st.session_state["last_course_id"] = course_id_int
+        st.session_state["last_course_name"] = course_name.strip()
+    except Exception as e:
+        st.error(f"Transfer failed: {e}")
+        st.stop()
+
+
+    st.subheader("Preview (from database)")
+
+    file_id = course_id_int
+    inserted, skipped = st.session_state.get("last_ingest_stats", (0, 0))
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("file_id", file_id)
+    c2.metric("Inserted", inserted)
+    c3.metric("Skipped", skipped)
+
+    if file_id != 0:
+        admin_bucket_names = EVENT_BUCKETS.get("Admin activity", [])
+
+        with connect() as conn:
+            with conn.cursor() as cur:
+
+                # normal preview
+                rows = fetch_events_by_file(cur, file_id=file_id, limit=200)
+
+                # DEBUG: events whose event_name is in the "Admin activity" bucket
+                # plus whether that user_id is marked admin in user_dim
+                cur.execute("""
+                    SELECT e.id, e.ts, e.user_id, u.is_admin,
+                        e.context, e.component, e.event_name, e.description, e.origin
+                    FROM moodle.event e
+                    LEFT JOIN moodle.user_dim u
+                    ON e.user_id = u.user_id
+                    WHERE e.file_id = %s
+                    AND e.event_name = ANY(%s)
+                    ORDER BY e.id
+                    LIMIT 200
+                """, (file_id, admin_bucket_names))
+
+                admin_bucket_event_rows = cur.fetchall()
+
+        # normal preview
+        preview_df = pl.DataFrame(
+            rows,
+            schema=["id","ts","user_id","context","component","event_name","description","origin"]
+        )
+        st.subheader("Event preview")
+        st.dataframe(preview_df.to_pandas(), use_container_width=True)
+
+        # admin-bucket debug table
+        admin_bucket_df = pl.DataFrame(
+            admin_bucket_event_rows,
+            schema=["id","ts","user_id","is_admin","context","component","event_name","description","origin"]
+        )
+
+        st.subheader("DEBUG: events with event_name in 'Admin activity' bucket (should be empty OR show new ids)")
+        st.dataframe(admin_bucket_df.to_pandas(), use_container_width=True)
+
+    else:
+        st.warning("No rows inserted.")
+
+    if st.button("Reset session"):
+        st.session_state.clear()
+        st.rerun()
 
 
 # -----------------------------
