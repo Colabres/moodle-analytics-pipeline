@@ -20,7 +20,7 @@ ORDER BY day;
 """
 
 NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL = """
-SELECT user_id, COUNT(*) AS n
+SELECT user_id, COUNT(*) AS %(columnname)s
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
@@ -61,7 +61,8 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
 
     names = ["Tenttivastaus palautettu", "Palautus on lähetetty"]
 
-    params = {        
+    params = {    
+        "columnname": "number_of_submissions_in_earlier_quartile",    
         "start_ts": start_ts,
         "end_ts": split_ts,
         "use_event_filter": len(names) > 0,
@@ -71,11 +72,11 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     }
 
     df_early_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
-    df_early_quartile = df_early_quartile.rename(columns={"n": "nx"})
-    df_early_quartile["nx"] = df_early_quartile["nx"].astype(int)  
+    df_early_quartile["number_of_submissions_in_earlier_quartile"] = df_early_quartile["number_of_submissions_in_earlier_quartile"].astype(int)  
     
     
-    params = {        
+    params = { 
+        "columnname": "number_of_submissions_in_later_quartile",       
         "start_ts": split_ts,
         "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
@@ -85,14 +86,13 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     }
 
     df_later_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
-    df_later_quartile = df_later_quartile.rename(columns={"n": "ny"})
-    df_later_quartile["ny"] = df_later_quartile["ny"].astype(int)
+    df_later_quartile["number_of_submissions_in_later_quartile"] = df_later_quartile["number_of_submissions_in_later_quartile"].astype(int)
 
     df_plot = df_early_quartile.merge(df_later_quartile, on="user_id", how="outer")
     df_plot = df_plot.fillna(0)
 
-    df_plot = df_plot[["nx", "ny"]]
-    st.scatter_chart(df_plot, x="nx", y="ny")
+    df_plot = df_plot[["number_of_submissions_in_earlier_quartile", "number_of_submissions_in_later_quartile"]]
+    st.scatter_chart(df_plot, x="number_of_submissions_in_earlier_quartile", y="number_of_submissions_in_later_quartile")
 
     if show_table:
         with st.expander("Show aggregated counts", expanded=False):
@@ -164,7 +164,8 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     }
     df_early_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
     df_early_quartile["ts"] = pd.to_datetime(df_early_quartile["ts"])
-    early_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_early_quartile, "early_total_hours")
+    x_name = "total_hours_spent_on_at_least_one_exam_at_a_time_in_earlier_quartile"
+    early_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_early_quartile, x_name)
 
     params = {
         "start_ts": split_ts,
@@ -176,14 +177,15 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     }
     df_later_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
     df_later_quartile["ts"] = pd.to_datetime(df_later_quartile["ts"])
-    later_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_later_quartile, "later_total_hours")
+    y_name = "total_hours_spent_on_at_least_one_exam_at_a_time_in_later_quartile"
+    later_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_later_quartile, y_name)
 
     df_plot = early_total_times.merge(later_total_times, on="user_id", how="outer")
     df_plot = df_plot.fillna(0)
 
     #df_plot = df_plot.set_index("early_total_hours")[["early_total_hours", "later_total_hours"]]
-    df_plot = df_plot[["early_total_hours", "later_total_hours"]]
-    st.scatter_chart(df_plot, x="early_total_hours", y="later_total_hours")
+    df_plot = df_plot[[x_name, y_name]]
+    st.scatter_chart(df_plot, x=x_name, y=y_name)
 
     if show_table:
         with st.expander("Show aggregated counts", expanded=False):
