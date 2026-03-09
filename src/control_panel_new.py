@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date, timedelta
 from src.event_buckets import EVENT_BUCKETS
+from src.ingest import get_ingest_files
 
 # Plot “IDs” are stable keys you can later map to real plotting functions
 PLOT_OPTIONS = [
@@ -32,15 +33,18 @@ def _checkbox_multiselect(label: str, options: list[str], key_prefix: str) -> li
             st.session_state[f"{key_prefix}_{opt}"] = False
 
     selected = []
-    for opt in options:
-        checked = st.checkbox(opt, key=f"{key_prefix}_{opt}")
-        if checked:
-            selected.append(opt)
+    container = st.container(height=220)
+
+    with container:
+        for opt in options:
+            checked = st.checkbox(opt, key=f"{key_prefix}_{opt}")
+            if checked:
+                selected.append(opt)
     return selected
 
 
 def _render_standard_controls() -> dict:
-    col1, col2, col3 = st.columns(3, gap="large")
+    col1, col2, col3, col4 = st.columns(4, gap="large")
 
     # --------- 1) Time Range ----------
     with col1:
@@ -55,9 +59,33 @@ def _render_standard_controls() -> dict:
 
         if start_date > end_date:
             st.error("Start date must be on or before end date.")
-
-    # --------- 2) Event buckets ----------
+    
+    # --------- 2) Course sellector ----------
     with col2:
+        st.markdown("Course")
+
+        course_search = st.text_input("Search course", key="cp_course_search")
+
+        course_items = get_ingest_files(course_search)
+
+        course_labels = [f"{file_id} — {filename}" for file_id, filename in course_items]
+        label_to_id = {
+            f"{file_id} — {filename}": file_id
+            for file_id, filename in course_items
+        }
+
+        selected_course_labels = _checkbox_multiselect(
+            label="Select courses:",
+            options=course_labels,
+            key_prefix="cp_course"
+        )
+
+        selected_course_ids = [label_to_id[label] for label in selected_course_labels]
+
+        st.caption(f"{len(course_items)} matching courses.")
+
+    # --------- 3) Event buckets ----------
+    with col3:
         st.markdown("Event groups to include")
 
         bucket_names = list(EVENT_BUCKETS.keys())
@@ -70,8 +98,8 @@ def _render_standard_controls() -> dict:
 
         st.caption("UI-only now. Later: selected buckets expand into event_name filters.")
 
-    # --------- 3) Analytics plots ----------
-    with col3:
+    # --------- 4) Analytics plots ----------
+    with col4:
         st.markdown("Analytics graphs to display")
 
         plot_labels = [label for (_id, label) in PLOT_OPTIONS]
@@ -95,6 +123,7 @@ def _render_standard_controls() -> dict:
     return {
         "start_date": start_date,
         "end_date": end_date,
+        "course_ids": selected_course_ids,
         "buckets": selected_buckets,
         "plots": selected_plot_ids,
         "run_clicked": run_clicked,

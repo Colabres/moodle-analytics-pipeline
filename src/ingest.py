@@ -12,7 +12,8 @@ from src.db import (
     fetch_admin_user_ids,
     set_users_active,
     set_users_admin,
-    fetch_all_file_ids
+    fetch_all_file_ids,
+    fetch_ingest_files
 )
 
 
@@ -62,6 +63,16 @@ def get_all_file_ids() -> set[int]:
 
     return existing_ids
 
+def get_ingest_files(search: str | None = None) -> list[tuple[int, str]]:
+    """
+    Returns ingest files as (file_id, filename).
+
+    If search is provided, only matching filenames are returned.
+    """
+    with connect() as conn:
+        with conn.cursor() as cur:
+            return fetch_ingest_files(cur, search=search)
+        
 def transfer_to_db(df: pl.DataFrame,file_id: int ,filename: str) -> Tuple[int, int, int]:
     """
     Transfer dataframe rows into Postgres.

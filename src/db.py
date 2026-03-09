@@ -112,3 +112,35 @@ def fetch_all_file_ids(cur) -> set[int]:
         """
     )
     return {int(r[0]) for r in cur.fetchall() if r[0] is not None}
+
+def fetch_ingest_files(cur, search: str | None = None) -> list[tuple[int, str]]:
+    """
+    Returns ingest files as (file_id, filename), ordered by newest id first.
+
+    If search is provided, filters filename with ILIKE.
+    """
+    if search and search.strip():
+        pattern = f"%{search.strip()}%"
+        cur.execute(
+            """
+            SELECT file_id, filename
+            FROM moodle.ingest_file
+            WHERE filename ILIKE %s
+            ORDER BY file_id DESC
+            """,
+            (pattern,),
+        )
+    else:
+        cur.execute(
+            """
+            SELECT file_id, filename
+            FROM moodle.ingest_file
+            ORDER BY file_id DESC
+            """
+        )
+
+    return [
+        (int(r[0]), str(r[1]))
+        for r in cur.fetchall()
+        if r[0] is not None and r[1] is not None
+    ]

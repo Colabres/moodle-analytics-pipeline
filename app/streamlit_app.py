@@ -207,7 +207,7 @@ if standard.get("run_clicked"):
                     standard["start_date"],
                     standard["end_date"],
                     event_names,
-                    file_id=None,
+                    file_ids = standard["course_ids"],
                     show_table=True,
                 )
 

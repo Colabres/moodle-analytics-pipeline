@@ -14,7 +14,7 @@ SELECT date_trunc('day', ts) AS day, COUNT(*) AS n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
 GROUP BY day
 ORDER BY day;
 """
@@ -202,7 +202,7 @@ def plot_daily_activity(
     end_date: date,
     event_names: Sequence[str] | None,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     show_table: bool = True,
 ) -> pd.DataFrame:
     if start_date > end_date:
@@ -212,13 +212,14 @@ def plot_daily_activity(
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
 
     names = list(event_names) if event_names else []
+    ids = list(file_ids) if file_ids else []
     params = {
         "start_ts": start_ts,
         "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
-        "use_file_scope": file_id is not None,
-        "file_id": file_id if file_id is not None else 0,
+        "use_file_scope": len(ids) > 0,
+        "file_ids": ids,
     }
 
     df = pd.read_sql_query(DAILY_ACTIVITY_SQL, conn, params=params)
@@ -252,7 +253,7 @@ SELECT EXTRACT(hour FROM ts) AS hour, COUNT(*) AS n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
 GROUP BY hour
 ORDER BY hour;
 """
@@ -263,7 +264,7 @@ SELECT EXTRACT(week FROM ts) AS week, COUNT(*) AS n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
 GROUP BY week
 ORDER BY week;
 """
@@ -274,7 +275,7 @@ SELECT component, COUNT(*) AS n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
 GROUP BY component
 ORDER BY n DESC;
 """
@@ -285,7 +286,7 @@ SELECT event_name, COUNT(*) AS n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
 GROUP BY event_name
 ORDER BY n DESC
 LIMIT %(top_n)s;
@@ -298,7 +299,7 @@ def _date_to_ts_range(start_date: date, end_date: date):
     return start_ts, end_ts
 
 
-def _build_params(start_ts, end_ts, event_names, file_id):
+def _build_params(start_ts, end_ts, event_names, ids):
     names = list(event_names) if event_names else []
 
     return {
@@ -306,8 +307,8 @@ def _build_params(start_ts, end_ts, event_names, file_id):
         "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
-        "use_file_scope": file_id is not None,
-        "file_id": file_id if file_id is not None else 0,
+        "use_file_scope": len(ids) > 0,
+        "file_ids": ids,
     }
 
 
@@ -317,12 +318,12 @@ def plot_hourly_activity(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
-    params = _build_params(start_ts, end_ts, event_names, file_id)
+    params = _build_params(start_ts, end_ts, event_names, file_ids)
 
     df = pd.read_sql_query(HOURLY_ACTIVITY_SQL, conn, params=params)
 
@@ -345,12 +346,12 @@ def plot_weekly_activity(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
-    params = _build_params(start_ts, end_ts, event_names, file_id)
+    params = _build_params(start_ts, end_ts, event_names, file_ids)
 
     df = pd.read_sql_query(WEEKLY_ACTIVITY_SQL, conn, params=params)
 
@@ -373,12 +374,12 @@ def plot_component_distribution(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
-    params = _build_params(start_ts, end_ts, event_names, file_id)
+    params = _build_params(start_ts, end_ts, event_names, file_ids)
 
     df = pd.read_sql_query(COMPONENT_DIST_SQL, conn, params=params)
 
@@ -400,14 +401,14 @@ def plot_top_events(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     top_n: int = 10,
     show_table: bool = True
 ) -> pd.DataFrame:
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
 
-    params = _build_params(start_ts, end_ts, event_names, file_id)
+    params = _build_params(start_ts, end_ts, event_names, file_ids)
     params["top_n"] = top_n
 
     df = pd.read_sql_query(TOP_EVENTS_SQL, conn, params=params)
