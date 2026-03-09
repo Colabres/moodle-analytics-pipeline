@@ -6,6 +6,7 @@ from src.ingest import get_ingest_files
 # Plot “IDs” are stable keys you can later map to real plotting functions
 PLOT_OPTIONS = [
     ("daily_activity", "Daily activity (events per day)"),
+    ("hourly_activity", "Hourly activity"),
     ("weekly_trend", "Weekly trend"),
     ("top_event_types", "Top event types"),
     ("component_distribution", "Component distribution"),
