@@ -102,33 +102,42 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
 def compute_total_hours_spent_on_one_or_more_exams_at_a_time(df:pd.DataFrame, colname:str):
     total_times = []
     user_ids = []
+    if len(df.index) == 0: #if there is no data
+        return pd.DataFrame({"user_id": pd.Series(["emptyrow"]), colname: pd.Series([0])})
+    
     #Iterate over rows
     cur_user = None #current user_id
     initial = True #whether or not we are at the first row
+    
     for r in df.itertuples(index=False):
         if r.user_id != cur_user: #Check if user has changed
             user_ids.append(r.user_id)
             cur_user = r.user_id
             counter = 0 #tracks how many exams are being worked at a time
+            
             if initial:
                 initial = False
-                total_time = 0 #total time spent by a user on one or more exams at a time
             else:
                 total_times.append(total_time)
-                total_time = 0
+            
+            total_time = 0 #total time spent by a user on one or more exams at a time
+        
         if r.event_name == "Tenttiin vastaaminen aloitettu":
-            start = r.ts #last recorded exam start
+            if counter == 0:
+                start = r.ts #last recorded exam start
             counter += 1
+        
         else: #in other words, if r.event_name == "Tenttivastaus palautettu"
             counter -= 1
+        
             if counter == 0:
                 total_time += (r.ts-start).total_seconds()/3600 #1h = 3600s
+        
             elif counter < 0: #if event_name "Tenttivastaus palautettu" for any reason comes before a corresponding "Tenttiin vastaaminen aloitettu"
                 counter = 0 #these cases are ignored
-    if len(user_ids)>len(total_times):
-        k = len(user_ids)-len(total_times)
-        for i in range(0, k):
-            total_times.append(0)
+    
+    total_times.append(total_time) #finalize
+    
     return pd.DataFrame({"user_id": pd.Series(user_ids), colname: pd.Series(total_times)})
 
 def plot_hours_spent_on_one_or_more_exams_at_a_time(
@@ -182,8 +191,8 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
 
     df_plot = early_total_times.merge(later_total_times, on="user_id", how="outer")
     df_plot = df_plot.fillna(0)
+    df_plot = df_plot[df_plot["user_id"] != "emptyrow"]
 
-    #df_plot = df_plot.set_index("early_total_hours")[["early_total_hours", "later_total_hours"]]
     df_plot = df_plot[[x_name, y_name]]
     st.scatter_chart(df_plot, x=x_name, y=y_name)
 
