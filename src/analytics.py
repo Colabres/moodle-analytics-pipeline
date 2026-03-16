@@ -24,7 +24,7 @@ SELECT user_id, COUNT(*) AS %(columnname)s
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
 GROUP BY user_id
 ORDER BY user_id;
 """
@@ -34,7 +34,7 @@ SELECT user_id, event_name, ts
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = %(file_id)s )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
 ORDER BY user_id, ts;
 """
 
@@ -43,7 +43,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     start_date: date,
     end_date: date,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     show_table: bool = True,
     quartile: float = 1/4 
 ) -> pd.DataFrame:
@@ -60,6 +60,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     split_ts = start_ts + (end_ts-start_ts)*quartile
 
     names = ["Tenttivastaus palautettu", "Palautus on lähetetty"]
+    ids = list(file_ids) if file_ids else []
 
     params = {    
         "columnname": "number_of_submissions_in_earlier_quartile",    
@@ -67,8 +68,8 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
         "end_ts": split_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
-        "use_file_scope": file_id is not None,
-        "file_id": file_id if file_id is not None else 0,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
     }
 
     df_early_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
@@ -81,8 +82,8 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
         "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
-        "use_file_scope": file_id is not None,
-        "file_id": file_id if file_id is not None else 0,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
     }
 
     df_later_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
@@ -145,7 +146,7 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     start_date: date,
     end_date: date,
     *,
-    file_id: Optional[int] = None,
+    file_ids: list[int] | None = None,
     show_table: bool = True,
     quartile: float = 1/4 
 ) -> pd.DataFrame:
@@ -162,14 +163,15 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     split_ts = start_ts + (end_ts-start_ts)*quartile
 
     names = ["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"]
+    ids = list(file_ids) if file_ids else []
 
     params = {
         "start_ts": start_ts,
         "end_ts": split_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
-        "use_file_scope": file_id is not None,
-        "file_id": file_id if file_id is not None else 0,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
     }
     df_early_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
     df_early_quartile["ts"] = pd.to_datetime(df_early_quartile["ts"])
@@ -181,8 +183,8 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
         "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
-        "use_file_scope": file_id is not None,
-        "file_id": file_id if file_id is not None else 0,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
     }
     df_later_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
     df_later_quartile["ts"] = pd.to_datetime(df_later_quartile["ts"])
