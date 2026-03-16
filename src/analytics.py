@@ -19,6 +19,15 @@ GROUP BY day
 ORDER BY day;
 """
 
+NUMBER_OF_UNIQUE_USERS_WHO_DID_SOMETHING_WITHIN_INTERVAL_SQL= """
+SELECT COUNT(DISTINCT user_id) AS %(columnname)s
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
+ORDER BY user_id;
+"""
+
 NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL = """
 SELECT user_id, COUNT(*) AS %(columnname)s
 FROM moodle.event
