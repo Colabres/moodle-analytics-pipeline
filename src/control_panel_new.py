@@ -92,11 +92,34 @@ def _render_standard_controls() -> dict:
         bucket_names = list(EVENT_BUCKETS.keys())
 
         selected_buckets = _checkbox_multiselect(
-            label="Select event buckets (empty = all later):",
+            label="Select event buckets:",
             options=bucket_names,
             key_prefix="cp_bucket"
         )
+      
+        dedup_minutes = st.slider(
+            "Event uniqueness threshold (minutes)",
+            min_value=0,
+            max_value=60,
+            value=5,
+            step=1
+        )
 
+        selected_subevents = []
+
+        if selected_buckets:
+            with st.expander("Expand selected buckets into specific events"):
+                expanded_events = []
+                for bucket in selected_buckets:
+                    expanded_events.extend(EVENT_BUCKETS.get(bucket, []))
+
+                expanded_events = sorted(set(expanded_events))
+
+                selected_subevents = _checkbox_multiselect(
+                    label="Select specific events (optional):",
+                    options=expanded_events,
+                    key_prefix="cp_subevent"
+                )
         st.caption("UI-only now. Later: selected buckets expand into event_name filters.")
 
     # --------- 4) Analytics plots ----------
@@ -126,6 +149,8 @@ def _render_standard_controls() -> dict:
         "end_date": end_date,
         "course_ids": selected_course_ids,
         "buckets": selected_buckets,
+        "threshold": dedup_minutes,
+        "subevents": selected_subevents,
         "plots": selected_plot_ids,
         "run_clicked": run_clicked,
     }
