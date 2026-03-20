@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 from typing import Optional, Sequence
+from math import floor
 
 import pandas as pd
 import streamlit as st
@@ -47,6 +48,69 @@ WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
 ORDER BY user_id, ts;
 """
 
+USERS_AND_TIMES_IN_ORDER_SQL = """
+SELECT user_id, ts
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
+ORDER BY ts;
+"""
+
+def compute_number_users_by_time_interval(
+    conn,
+    start_date: date,
+    end_date: date,
+    *,
+    file_ids: list[int] | None = None,
+    events: list[str] | None = None,
+    interval: int = 30
+) -> pd.DataFrame:
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+
+    names = list(events) if events else []
+    ids = list(file_ids) if file_ids else []
+
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    }
+    df = pd.read_sql_query(USERS_AND_TIMES_IN_ORDER_SQL, conn, params=params)
+    timeinterval = timedelta(minutes=interval)
+    numbers = []
+    counted_ids = []
+    last_n = 0
+
+    for r in df.itertuples(index=False):
+        new_n = (r.ts-start_ts)/timeinterval
+
+        if new_n-last_n >= 2: #if there is a timeskip
+            numbers.append(len(counted_ids))
+            counted_ids = []
+            n = floor(new_n-last_n)
+
+            for i in range(0, n-1):
+                numbers.append(0)
+    
+        if new_n-last_n >= 1:
+            numbers.append(len(counted_ids))
+            counted_ids = []
+            last_n = floor(new_n)
+    
+        if r.user_id not in counted_ids:
+            counted_ids.append(r.user_id)
+
+    numbers.append(len(counted_ids))
+    if len(numbers) > 0:
+        x = [i for i in range(len(numbers))]
+    else:
+        return None
+    return pd.DataFrame({"x": pd.Series(x), "number_of_users": pd.Series(numbers)})
+
 def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     conn,
     start_date: date,
@@ -54,6 +118,8 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     *,
     file_ids: list[int] | None = None,
     show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 30,
     quartile: float = 1/4 
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
@@ -70,6 +136,18 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
 
     names = ["Tenttivastaus palautettu", "Palautus on lähetetty"]
     ids = list(file_ids) if file_ids else []
+
+    if by_interval:
+        df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, interval=interval)
+        if df == None:
+            st.info("No data.")
+            return pd.DataFrame(columns=["user_id", "n"])
+        df_plot = df.set_index("x")[["number_of_users"]]
+        st.bar_chart(df_plot, height=320, use_container_width=True)
+        if show_table:
+            with st.expander("Show aggregated counts", expanded=False):
+                st.dataframe(df_plot, use_container_width=True)
+        return df_plot
 
     params = {    
         "columnname": "number_of_submissions_in_earlier_quartile",    
@@ -157,6 +235,8 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     *,
     file_ids: list[int] | None = None,
     show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 30,
     quartile: float = 1/4 
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
@@ -173,6 +253,18 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
 
     names = ["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"]
     ids = list(file_ids) if file_ids else []
+
+    if by_interval:
+        df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, interval=interval)
+        if df == None:
+            st.info("No data.")
+            return pd.DataFrame(columns=["user_id", "n"])
+        df_plot = df.set_index("x")[["number_of_users"]]
+        st.bar_chart(df_plot, height=320, use_container_width=True)
+        if show_table:
+            with st.expander("Show aggregated counts", expanded=False):
+                st.dataframe(df_plot, use_container_width=True)
+        return df_plot
 
     params = {
         "start_ts": start_ts,
