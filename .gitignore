@@ -18,6 +18,9 @@ moodleenv/
 data/
 *.csv
 
+#synthetic data
+synthetic/
+
 # VS Code
 .vscode/
 
