@@ -64,6 +64,7 @@ def compute_number_users_by_time_interval(
     *,
     file_ids: list[int] | None = None,
     events: list[str] | None = None,
+    threshold: int = 0,    
     interval: int = 30
 ) -> pd.DataFrame:
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
@@ -316,6 +317,7 @@ def plot_daily_activity(
     end_date: date,
     event_names: Sequence[str] | None,
     *,
+    threshold: int = 0,    
     file_ids: list[int] | None = None,
     show_table: bool = True,
 ) -> pd.DataFrame:
@@ -432,6 +434,7 @@ def plot_hourly_activity(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
+    threshold: int = 0,    
     file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
@@ -460,6 +463,7 @@ def plot_weekly_activity(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
+    threshold: int = 0,    
     file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
@@ -488,6 +492,7 @@ def plot_component_distribution(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
+    threshold: int = 0,    
     file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
@@ -515,6 +520,7 @@ def plot_top_events(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
+    threshold: int = 0,    
     file_ids: list[int] | None = None,
     top_n: int = 10,
     show_table: bool = True

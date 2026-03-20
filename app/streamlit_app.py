@@ -186,8 +186,11 @@ standard = cfg["standard"]
 additional = cfg["additional"]
 
 if standard.get("run_clicked"):
-    event_names = expand_buckets(standard.get("buckets", []))
-
+    #event_names = expand_buckets(standard.get("buckets", []))
+    if standard.get("subevents"):
+        event_names = standard["subevents"]
+    else:
+        event_names = expand_buckets(standard.get("buckets", []))
     if not standard.get("plots"):
         st.warning("Select at least one plot.")
     else:
@@ -207,6 +210,7 @@ if standard.get("run_clicked"):
                     standard["start_date"],
                     standard["end_date"],
                     event_names,
+                    threshold=standard["threshold"],                    
                     file_ids = standard["course_ids"],
                     show_table=True,
                 )
