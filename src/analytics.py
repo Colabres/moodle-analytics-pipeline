@@ -320,10 +320,35 @@ def plot_daily_activity(
     threshold: int = 0,    
     file_ids: list[int] | None = None,
     show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 60 * 24 
 ) -> pd.DataFrame:
     if start_date > end_date:
         st.error("Invalid date range: start_date > end_date")
         return pd.DataFrame(columns=["day", "n"])
+    
+    if by_interval:
+        df = compute_number_users_by_time_interval(
+            conn,
+            start_date,
+            end_date,
+            file_ids=file_ids,
+            events=event_names,
+            interval=interval
+        )
+
+        if df is None or df.empty:
+            st.info("Daily activity: no data.")
+            return pd.DataFrame()
+        
+        df_plot = df.set_index("x")[["number_of_users"]]
+        st.bar_chart(df_plot, height=320, use_container_width=True)
+
+        if show_table:
+            with st.expander("Show aggregated counts", expanded=False):
+                st.dataframe(df_plot, use_container_width=True)
+
+        return df_plot
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
 
@@ -436,8 +461,33 @@ def plot_hourly_activity(
     *,
     threshold: int = 0,    
     file_ids: list[int] | None = None,
-    show_table: bool = True
+    show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 60
 ) -> pd.DataFrame:
+    if by_interval:
+        df = compute_number_users_by_time_interval(
+            conn,
+            start_date,
+            end_date,
+            file_ids=file_ids,
+            events=event_names,
+            interval=interval
+        )
+
+        if df is None or df.empty:
+            st.info("No hourly activity data.")
+            return pd.DataFrame()
+
+        df_plot = df.set_index("x")[["number_of_users"]]
+        st.bar_chart(df_plot, height=320, use_container_width=True)
+
+        if show_table:
+            with st.expander("Show aggregated counts", expanded=False):
+                st.dataframe(df_plot, use_container_width=True)
+
+        return df_plot
+
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
     params = _build_params(start_ts, end_ts, event_names, file_ids)
@@ -465,8 +515,32 @@ def plot_weekly_activity(
     *,
     threshold: int = 0,    
     file_ids: list[int] | None = None,
-    show_table: bool = True
+    show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 60 * 24 * 7
 ) -> pd.DataFrame:
+    if by_interval:
+        df = compute_number_users_by_time_interval(
+            conn,
+            start_date,
+            end_date,
+            file_ids=file_ids,
+            events=event_names,
+            interval=interval
+        )
+
+        if df is None or df.empty:
+            st.info("No weekly activity data.")
+            return pd.DataFrame()
+        
+        df_plot = df.set_index("x")[["number_of_users"]]
+        st.line_chart(df_plot, height=320, use_container_width=True)
+
+        if show_table:
+            with st.expander("Show aggregated counts", expanded=False):
+                st.dataframe(df_plot, use_container_width=True)
+
+        return df_plot
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
     params = _build_params(start_ts, end_ts, event_names, file_ids)
