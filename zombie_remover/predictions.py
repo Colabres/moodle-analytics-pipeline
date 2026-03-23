@@ -1,8 +1,9 @@
 import polars as pl
+from lightgbm import LGBMClassifier
 import pickle
 
 #form dataframe from the given data
-def form_dataframe(file):
+def form_dataframe(file: str) -> pl.DataFrame:
     data = pl.read_csv(file, separator=";")
     data = data.fill_nan(0)
     data = data.with_columns(
@@ -43,25 +44,26 @@ def form_dataframe(file):
     return data
 
 #Load saved classifier
-def load_model(model_name):
+def load_model(model_name: str) -> LGBMClassifier:
     with open(model_name, 'rb') as f:
         model = pickle.load(f)
     return model
 
 #create probability predictions (how likely is this course to be a zombie)
-def predict(data, model):
+def predict(data: pl.DataFrame, model: LGBMClassifier):
     probabilities = model.predict_proba(data)
     return probabilities[:,1]
 
 #Remove courses that are zombie with given probability treshold
-def zombie_remover(file, new_file_name, treshold, probabilities):
+def zombie_remover(file: str, new_file_name: str, treshold: float, probabilities: list):
     data = pl.read_csv(file, separator=";")
     data = data.with_columns(pl.Series('zombie', probabilities))
     data = data.filter(pl.col('zombie') <= treshold)
     data.write_csv(new_file_name)
 
 #Preview function, probably not right???
-def show_zombie_percent(data: pl.DataFrame, limit: int = 200):
+def show_zombie_percent(file: str, limit: int = 200) -> pl.DataFrame:
+    data = pl.read_csv(file, separator=";")
     data = data.with_columns(pl.Series('zombie', probabilities))
     data = data.select(["courseid", "zombie"])
     return data.limit(limit)
@@ -70,6 +72,7 @@ def show_zombie_percent(data: pl.DataFrame, limit: int = 200):
 data = form_dataframe("moodlemodules_2026.csv")
 model = load_model("model.pkl")
 probabilities = predict(data, model)
-zombie_remover("moodlemodules_2026.csv", "predictions_proba.csv", 0.5, probabilities)
+zombie_remover("moodlemodules_2026.csv", "predictions_proba.csv", 1, probabilities)
+print(show_zombie_percent("moodlemodules_2026.csv", 10))
 
 
