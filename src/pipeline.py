@@ -97,6 +97,15 @@ def create_activity(data: pl.DataFrame) -> pl.DataFrame:
         .alias("Aktiivinen")
     )
 
+def remove_duplicates(data: pl.DataFrame) -> pl.DataFrame:
+    #deletes logs created on the same minute
+    df = data.clone()
+    df = df.with_columns(pl.col("Aika").str.to_datetime(format="%d.%m.%Y, %H.%M.%S").alias("datetime"))
+    df = df.with_columns(pl.col("datetime").dt.round("5m").alias("datetime_rounded")) #change "5m" to time interval of choice
+    df = df.unique(subset=["Tapahtuman konteksti", "Tapahtuman nimi", "Kayttaja_id", "datetime_rounded"], maintain_order=True)
+    df = df.drop(["datetime", "datetime_rounded"])
+    return df
+
 def to_datetime(data: pl.DataFrame) -> pl.DataFrame:
     # Converts 'Aika' column data type to datetime. NaT for invalid rows.
     return data.with_columns(pl.col('Aika')
@@ -108,6 +117,7 @@ def pipeline(filename: str) -> pl.DataFrame:
     data = get_ids_dropsome(data)
     data = drop_admins(data)
     data = create_activity(data)
+    data = remove_duplicates(data)
     data = to_datetime(data)
     return data
 
