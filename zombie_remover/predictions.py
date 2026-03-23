@@ -60,6 +60,12 @@ def zombie_remover(file, new_file_name, treshold, probabilities):
     data = data.filter(pl.col('zombie') <= treshold)
     data.write_csv(new_file_name)
 
+#Preview function, probably not right???
+def show_zombie_percent(data: pl.DataFrame, limit: int = 200):
+    data = data.with_columns(pl.Series('zombie', probabilities))
+    data = data.select(["courseid", "zombie"])
+    return data.limit(limit)
+
 #example
 data = form_dataframe("moodlemodules_2026.csv")
 model = load_model("model.pkl")
