@@ -124,7 +124,8 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     show_table: bool = True,
     by_interval: bool = False,
     interval: int = 30,
-    quartile: float = 1/4 
+    quartile: float = 1/4,
+    normalized: bool = True
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
     if start_date > end_date:
@@ -186,7 +187,17 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     df_plot = df_plot.fillna(0)
 
     df_plot = df_plot[["number_of_submissions_in_earlier_quartile", "number_of_submissions_in_later_quartile"]]
-    st.scatter_chart(df_plot, x="number_of_submissions_in_earlier_quartile", y="number_of_submissions_in_later_quartile")
+
+    if normalized:
+        early_mean = df_plot["number_of_submissions_in_earlier_quartile"].mean()
+        later_mean = df_plot["number_of_submissions_in_later_quartile"].mean()
+        mes = "Average number of submissions per student in earlier quartile of the interval: "+str(early_mean)
+        st.caption(mes)
+        mes2 = "Average number of submissions per student in later quartile of the interval: "+str(later_mean)
+        st.caption(mes2)
+
+    else:
+        st.scatter_chart(df_plot, x="number_of_submissions_in_earlier_quartile", y="number_of_submissions_in_later_quartile")
 
     if show_table:
         with st.expander("Show aggregated counts", expanded=False):
@@ -243,7 +254,8 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     show_table: bool = True,
     by_interval: bool = False,
     interval: int = 30,
-    quartile: float = 1/4 
+    quartile: float = 1/4,
+    normalized: bool = True
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
     if start_date > end_date:
@@ -305,7 +317,16 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     df_plot = df_plot[df_plot["user_id"] != "emptyrow"]
 
     df_plot = df_plot[[x_name, y_name]]
-    st.scatter_chart(df_plot, x=x_name, y=y_name)
+    if normalized:
+        early_mean = df_plot[x_name].mean()
+        later_mean = df_plot[y_name].mean()
+        mes = "Average total hours spent on at least one exam at a time per student in earlier quartile of the interval: "+str(early_mean)
+        st.caption(mes)
+        mes2 = "Average total hours spent on at least one exam at a time per student in later quartile of the interval: "+str(later_mean)
+        st.caption(mes2)
+
+    else:
+        st.scatter_chart(df_plot, x=x_name, y=y_name)
 
     if show_table:
         with st.expander("Show aggregated counts", expanded=False):
