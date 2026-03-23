@@ -101,7 +101,7 @@ def remove_duplicates(data: pl.DataFrame) -> pl.DataFrame:
     #deletes logs created on the same minute
     df = data.clone()
     df = df.with_columns(pl.col("Aika").str.to_datetime(format="%d.%m.%Y, %H.%M.%S").alias("datetime"))
-    df = df.with_columns(pl.col("datetime").dt.round("5m").alias("datetime_rounded")) #change "5m" to time interval of choice
+    df = df.with_columns(pl.col("datetime").dt.round("1m").alias("datetime_rounded")) #change "1m" to time interval of choice
     df = df.unique(subset=["Tapahtuman konteksti", "Tapahtuman nimi", "Kayttaja_id", "datetime_rounded"], maintain_order=True)
     df = df.drop(["datetime", "datetime_rounded"])
     return df
