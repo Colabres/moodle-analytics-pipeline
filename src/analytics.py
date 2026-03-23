@@ -81,7 +81,10 @@ def compute_number_users_by_time_interval(
         "file_id": ids,
     }
     df = pd.read_sql_query(USERS_AND_TIMES_IN_ORDER_SQL, conn, params=params)
-    timeinterval = timedelta(minutes=interval)
+    if threshold <= 0:
+        timeinterval = timedelta(minutes=interval)
+    else:
+        timeinterval = timedelta(minutes=threshold)
     numbers = []
     counted_ids = []
     last_n = 0
@@ -117,7 +120,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     start_date: date,
     end_date: date,
     *,
-    file_ids: list[int] | None = None,
+    file_id: list[int] | None = None,
     show_table: bool = True,
     by_interval: bool = False,
     interval: int = 30,
@@ -136,15 +139,17 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     split_ts = start_ts + (end_ts-start_ts)*quartile
 
     names = ["Tenttivastaus palautettu", "Palautus on lähetetty"]
-    ids = list(file_ids) if file_ids else []
+    ids = list(file_id) if file_id else []
 
     if by_interval:
         df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, interval=interval)
         if df == None:
             st.info("No data.")
             return pd.DataFrame(columns=["user_id", "n"])
+        
         df_plot = df.set_index("x")[["number_of_users"]]
         st.bar_chart(df_plot, height=320, use_container_width=True)
+
         if show_table:
             with st.expander("Show aggregated counts", expanded=False):
                 st.dataframe(df_plot, use_container_width=True)
@@ -234,7 +239,7 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     start_date: date,
     end_date: date,
     *,
-    file_ids: list[int] | None = None,
+    file_id: list[int] | None = None,
     show_table: bool = True,
     by_interval: bool = False,
     interval: int = 30,
@@ -253,15 +258,17 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     split_ts = start_ts + (end_ts-start_ts)*quartile
 
     names = ["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"]
-    ids = list(file_ids) if file_ids else []
+    ids = list(file_id) if file_id else []
 
     if by_interval:
         df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, interval=interval)
         if df == None:
             st.info("No data.")
             return pd.DataFrame(columns=["user_id", "n"])
+        
         df_plot = df.set_index("x")[["number_of_users"]]
         st.bar_chart(df_plot, height=320, use_container_width=True)
+
         if show_table:
             with st.expander("Show aggregated counts", expanded=False):
                 st.dataframe(df_plot, use_container_width=True)
