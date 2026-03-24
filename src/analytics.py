@@ -21,7 +21,7 @@ ORDER BY day;
 """
 
 NUMBER_OF_UNIQUE_USERS_WHO_DID_SOMETHING_WITHIN_INTERVAL_SQL= """
-SELECT COUNT(DISTINCT user_id) AS %(columnname)s
+SELECT COUNT(DISTINCT user_id) AS users_n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
@@ -30,7 +30,7 @@ ORDER BY user_id;
 """
 
 NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL = """
-SELECT user_id, COUNT(*) AS %(columnname)s
+SELECT user_id, COUNT(*) AS submissions_n
 FROM moodle.event
 WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
@@ -125,7 +125,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     by_interval: bool = False,
     interval: int = 30,
     quartile: float = 1/4,
-    normalized: bool = True
+    normalized: bool = False
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
     if start_date > end_date:
@@ -156,8 +156,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
                 st.dataframe(df_plot, use_container_width=True)
         return df_plot
 
-    params = {    
-        "columnname": "number_of_submissions_in_earlier_quartile",    
+    params = {        
         "start_ts": start_ts,
         "end_ts": split_ts,
         "use_event_filter": len(names) > 0,
@@ -167,11 +166,10 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     }
 
     df_early_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
-    df_early_quartile["number_of_submissions_in_earlier_quartile"] = df_early_quartile["number_of_submissions_in_earlier_quartile"].astype(int)  
+    df_early_quartile["number_of_submissions_in_earlier_quartile"] = df_early_quartile["submissions_n"].astype(int)  
     
     
-    params = { 
-        "columnname": "number_of_submissions_in_later_quartile",       
+    params = {       
         "start_ts": split_ts,
         "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
@@ -181,7 +179,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     }
 
     df_later_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
-    df_later_quartile["number_of_submissions_in_later_quartile"] = df_later_quartile["number_of_submissions_in_later_quartile"].astype(int)
+    df_later_quartile["number_of_submissions_in_later_quartile"] = df_later_quartile["submissions_n"].astype(int)
 
     df_plot = df_early_quartile.merge(df_later_quartile, on="user_id", how="outer")
     df_plot = df_plot.fillna(0)
@@ -255,7 +253,7 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     by_interval: bool = False,
     interval: int = 30,
     quartile: float = 1/4,
-    normalized: bool = True
+    normalized: bool = False
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
     if start_date > end_date:
