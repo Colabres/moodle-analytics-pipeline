@@ -18,11 +18,11 @@ def clean(series: pd.Series) -> pd.Series:
 def fit_hierarchy(df: pd.DataFrame) -> dict: ## Tätä käytetään hierarkia rakenteen asettamiseen Komponentti -> Tapahtuman nimi -> Kuvaus
     d = df.copy()
     comp = "Komponentti"
-    event = "Tapahtuman nimi"
+    event_col = "Tapahtuman nimi"
     desc = "Kuvaus"
 
     d[comp] = d[comp].fillna("").astype(str).str.strip()
-    d[event] = d[event].fillna("").astype(str).str.strip()
+    d[event_col] = d[event_col].fillna("").astype(str).str.strip()
     d[desc] = clean(d[desc]) # kuvausten putsaus
 
     p_comp = d[comp].value_counts(normalize=True) # Komponenteille (indeksi,frekvenssi)
@@ -31,20 +31,20 @@ def fit_hierarchy(df: pd.DataFrame) -> dict: ## Tätä käytetään hierarkia ra
 
     event_given_component = {}
     for component, g in d.groupby(comp, dropna=False): # sama prosessi
-        p_event = g[event].value_counts(normalize=True)
+        p_event = g[event_col].value_counts(normalize=True)
         events = p_event.index.to_numpy()
         event_probs = p_event.to_numpy()
         event_given_component[component] = (events, event_probs) # komponenttia kohden tapahtuman indeksi ja frekvenssi
 
     desc_given = {}
-    for (component, event), g in d.groupby([comp, event], dropna=False): # sama homma kuvauksille
+    for (component, event), g in d.groupby([comp, event_col], dropna=False): # sama homma kuvauksille
         p_desc = g[desc].value_counts(normalize=True)
         descs = p_desc.index.to_numpy()
         desc_probs = p_desc.to_numpy()
         desc_given[(component, event)] = (descs, desc_probs)
 
     return {
-        "cols": (comp, event, desc),
+        "cols": (comp, event_col, desc),
         "comps": comps,
         "comp_probs": comp_probs,
         "ev_given_comp": event_given_component,
@@ -124,7 +124,7 @@ def fill_ids(desc: pd.Series, rng: np.random.Generator,
                     low: int = 100000, high: int = 999_999) -> pd.Series:
     pat = re.compile(r"\bX\b")
     def repl(joku):
-        return str(rng.integers(low, high + 1))
+        return f"'{rng.integers(low, high + 1)}'"
     return desc.astype(str).map(lambda s: pat.sub(repl, s))
 
 
@@ -145,7 +145,7 @@ for i in range(10):
     synthetic['Aika']=generate_timecol(n=n, start=datetime(2015+i, 1, 1), end=datetime(2016+i,1,1))
     synthetic['Tapahtuman konteksti']=random_strings(n=n, length=20)
     synthetic['Alkuperä']=random_strings(n=n, length=3)
-    synthetic["Kuvaus"] = fill_ids(synthetic["Kuvaus"], rng)
-    path = f"synthetic/{base}{i}.csv"
+    synthetic['Kuvaus'] = fill_ids(synthetic['Kuvaus'], rng)
+    path = f'synthetic/{base}{i}.csv'
     synthetic.to_csv(path, index=False, sep=';')
-    print("wrote", path)
+    print('wrote', path)
