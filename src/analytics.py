@@ -206,7 +206,7 @@ def compute_total_hours_spent_on_one_or_more_exams_at_a_time(df:pd.DataFrame, co
     total_times = []
     user_ids = []
     if len(df.index) == 0: #if there is no data
-        return pd.DataFrame({"user_id": pd.Series(["emptyrow"]), colname: pd.Series([0])})
+        return pd.DataFrame({"user_id": pd.Series([0]), colname: pd.Series([0])})
     
     #Iterate over rows
     cur_user = None #current user_id
@@ -312,7 +312,7 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
 
     df_plot = early_total_times.merge(later_total_times, on="user_id", how="outer")
     df_plot = df_plot.fillna(0)
-    df_plot = df_plot[df_plot["user_id"] != "emptyrow"]
+    df_plot = df_plot[df_plot["user_id"] != 0]
 
     df_plot = df_plot[[x_name, y_name]]
     if normalized:
