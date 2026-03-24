@@ -67,10 +67,11 @@ def compute_number_users_by_time_interval(
     threshold: int = 0,    
     interval: int = 30
 ) -> pd.DataFrame:
+    #compute how many distinct users did something on each x min interval
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
 
-    names = list(events) if events else []
-    ids = list(file_ids) if file_ids else []
+    names = list(events) if events else [] #check which events to include
+    ids = list(file_ids) if file_ids else [] #check which file_ids to include
 
     params = {       
         "start_ts": start_ts,
@@ -79,39 +80,41 @@ def compute_number_users_by_time_interval(
         "event_names": names,
         "use_file_scope": len(ids) > 0,
         "file_id": ids,
-    }
-    df = pd.read_sql_query(USERS_AND_TIMES_IN_ORDER_SQL, conn, params=params)
-    if threshold <= 0:
-        timeinterval = timedelta(minutes=interval)
-    else:
-        timeinterval = timedelta(minutes=threshold)
-    numbers = []
-    counted_ids = []
-    last_n = 0
+    } #prepare query parameters
+    df = pd.read_sql_query(USERS_AND_TIMES_IN_ORDER_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    if threshold <= 0: #if the treshold parameter is not given by the dashboard UI or it is smaller or equal to 0
+        timeinterval = timedelta(minutes=interval) #use the interval parameter
+    else: #otherwise
+        timeinterval = timedelta(minutes=threshold) #use the treshold parameter
+    numbers = [] #number of distinct users who did something by interval 
+    counted_ids = [] #distinct users who did something in a given interval
+    last_n = 0 #last interval
 
-    for r in df.itertuples(index=False):
-        new_n = (r.ts-start_ts)/timeinterval
+    for r in df.itertuples(index=False): #iterate over rows
+        new_n = (r.ts-start_ts)/timeinterval #compute which interval we are in
 
         if new_n-last_n >= 2: #if there is a timeskip
-            numbers.append(len(counted_ids))
+            numbers.append(len(counted_ids)) #record the information of the last interval
             counted_ids = []
             n = floor(new_n-last_n)
 
-            for i in range(0, n-1):
+            for i in range(0, n-1): #append zeros until the last interval before the end of the timeskip
                 numbers.append(0)
     
-        if new_n-last_n >= 1:
-            numbers.append(len(counted_ids))
+        if new_n-last_n >= 1: #if we have arrived at the next interval
+            numbers.append(len(counted_ids)) #record the information of the last interval
             counted_ids = []
             last_n = floor(new_n)
     
-        if r.user_id not in counted_ids:
+        if r.user_id not in counted_ids: #check if we have not already encoutered the user within a given interval
             counted_ids.append(r.user_id)
 
-    numbers.append(len(counted_ids))
+    numbers.append(len(counted_ids)) #finalize
     if len(numbers) > 0:
         x = [i for i in range(len(numbers))]
-    else:
+    else: #no data
         return None
     return pd.DataFrame({"x": pd.Series(x), "number_of_users": pd.Series(numbers)})
 
@@ -128,28 +131,28 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     normalized: bool = False
 ) -> pd.DataFrame:
     #Note: plots both exercise and exam submissions
-    if start_date > end_date:
+    if start_date > end_date: #validate the start and end dates
         st.error("Invalid date range: start_date > end_date")
         return pd.DataFrame(columns=["user_id", "n"])
     
-    if quartile >= 1 or quartile <= 0:
+    if quartile >= 1 or quartile <= 0: #verify the quartile parameter, must be in range (0, 1)
         st.error("Invalid quartile: must be larger than 0 and smaller than 1")
         return pd.DataFrame(columns=["user_id", "n"])
     
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
-    split_ts = start_ts + (end_ts-start_ts)*quartile
+    split_ts = start_ts + (end_ts-start_ts)*quartile #split the duration in two, with 100*quartile percent of the duration given to the first part
 
-    names = ["Tenttivastaus palautettu", "Palautus on lähetetty"]
-    ids = list(file_id) if file_id else []
+    names = ["Tenttivastaus palautettu", "Palautus on lähetetty"] #we are only interested in submissions, be they exam or exercise submissions
+    ids = list(file_id) if file_id else [] #check which file_ids to include in the query
 
-    if by_interval:
+    if by_interval: #if we want to split the duration into x min intervals, we ignore the quartile partition done earlier
         df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, interval=interval)
-        if df == None:
+        if df == None: #no data
             st.info("No data.")
             return pd.DataFrame(columns=["user_id", "n"])
         
         df_plot = df.set_index("x")[["number_of_users"]]
-        st.bar_chart(df_plot, height=320, use_container_width=True)
+        st.bar_chart(df_plot, height=320, use_container_width=True) #plot a bar chart
 
         if show_table:
             with st.expander("Show aggregated counts", expanded=False):
@@ -163,11 +166,10 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
         "event_names": names,
         "use_file_scope": len(ids) > 0,
         "file_id": ids,
-    }
+    } #prepare the query parameters
 
-    df_early_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
-    df_early_quartile["number_of_submissions_in_earlier_quartile"] = df_early_quartile["submissions_n"].astype(int)  
-    
+    df_early_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params) #execute query for the first part
+    df_early_quartile["number_of_submissions_in_earlier_quartile"] = df_early_quartile["submissions_n"].astype(int) #extract numbers of submissions
     
     params = {       
         "start_ts": split_ts,
@@ -176,17 +178,17 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
         "event_names": names,
         "use_file_scope": len(ids) > 0,
         "file_id": ids,
-    }
+    } #prepare the query parameters
 
-    df_later_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
-    df_later_quartile["number_of_submissions_in_later_quartile"] = df_later_quartile["submissions_n"].astype(int)
+    df_later_quartile = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params) #execute query for the second part
+    df_later_quartile["number_of_submissions_in_later_quartile"] = df_later_quartile["submissions_n"].astype(int) #extract numbers of submissions
 
-    df_plot = df_early_quartile.merge(df_later_quartile, on="user_id", how="outer")
-    df_plot = df_plot.fillna(0)
+    df_plot = df_early_quartile.merge(df_later_quartile, on="user_id", how="outer") #merge dataframes for simpler handling
+    df_plot = df_plot.fillna(0) #replace the resulting NaN values with zeros
 
-    df_plot = df_plot[["number_of_submissions_in_earlier_quartile", "number_of_submissions_in_later_quartile"]]
+    df_plot = df_plot[["number_of_submissions_in_earlier_quartile", "number_of_submissions_in_later_quartile"]] #we are only interested in numbers of submissions
 
-    if normalized:
+    if normalized: #if we want to normalize the results, we simply compute and display the average number of submissions per user
         early_mean = df_plot["number_of_submissions_in_earlier_quartile"].mean()
         later_mean = df_plot["number_of_submissions_in_later_quartile"].mean()
         mes = "Average number of submissions per student in earlier quartile of the interval: "+str(early_mean)
@@ -194,7 +196,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
         mes2 = "Average number of submissions per student in later quartile of the interval: "+str(later_mean)
         st.caption(mes2)
 
-    else:
+    else: #if we do not want to normalize (default), we plot a scatter plot
         st.scatter_chart(df_plot, x="number_of_submissions_in_earlier_quartile", y="number_of_submissions_in_later_quartile")
 
     if show_table:
@@ -203,37 +205,37 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     return df_plot
 
 def compute_total_hours_spent_on_one_or_more_exams_at_a_time(df:pd.DataFrame, colname:str):
+    #the dataframe is assumed to be ordered first by user_id and then by timestamp
     total_times = []
     user_ids = []
     if len(df.index) == 0: #if there is no data
-        return pd.DataFrame({"user_id": pd.Series([0]), colname: pd.Series([0])})
+        return pd.DataFrame({"user_id": pd.Series([0]), colname: pd.Series([0])}) #return a dummy row which will be removed later
     
-    #Iterate over rows
     cur_user = None #current user_id
     initial = True #whether or not we are at the first row
     
-    for r in df.itertuples(index=False):
+    for r in df.itertuples(index=False): #iterate over rows
         if r.user_id != cur_user: #Check if user has changed
             user_ids.append(r.user_id)
             cur_user = r.user_id
             counter = 0 #tracks how many exams are being worked at a time
             
-            if initial:
-                initial = False
+            if initial: #check if we are in the first row
+                initial = False #we are no longer in the first row, initialization complete
             else:
                 total_times.append(total_time)
             
             total_time = 0 #total time spent by a user on one or more exams at a time
         
-        if r.event_name == "Tenttiin vastaaminen aloitettu":
+        if r.event_name == "Tenttiin vastaaminen aloitettu": #start of an exam
             if counter == 0:
                 start = r.ts #last recorded exam start
             counter += 1
         
-        else: #in other words, if r.event_name == "Tenttivastaus palautettu"
+        else: #in other words, if r.event_name == "Tenttivastaus palautettu", end of an exam
             counter -= 1
         
-            if counter == 0:
+            if counter == 0: #no more ongoing exams
                 total_time += (r.ts-start).total_seconds()/3600 #1h = 3600s
         
             elif counter < 0: #if event_name "Tenttivastaus palautettu" for any reason comes before a corresponding "Tenttiin vastaaminen aloitettu"
@@ -255,29 +257,29 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
     quartile: float = 1/4,
     normalized: bool = False
 ) -> pd.DataFrame:
-    #Note: plots both exercise and exam submissions
-    if start_date > end_date:
+    
+    if start_date > end_date: #validate the start and end dates
         st.error("Invalid date range: start_date > end_date")
         return pd.DataFrame(columns=["user_id", "n"])
     
-    if quartile >= 1 or quartile <= 0:
+    if quartile >= 1 or quartile <= 0: #verify the quartile parameter, must be in range (0, 1)
         st.error("Invalid quartile: must be larger than 0 and smaller than 1")
         return pd.DataFrame(columns=["user_id", "n"])
     
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
-    split_ts = start_ts + (end_ts-start_ts)*quartile
+    split_ts = start_ts + (end_ts-start_ts)*quartile #split the duration in two, with 100*quartile percent of the duration given to the first part
 
-    names = ["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"]
-    ids = list(file_id) if file_id else []
+    names = ["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"] #we are only interested in exam start and end times
+    ids = list(file_id) if file_id else [] #check which file_ids to include in the query
 
-    if by_interval:
+    if by_interval: #if we want to split the duration into x min intervals, we ignore the quartile partition done earlier
         df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, interval=interval)
-        if df == None:
+        if df == None: #no data
             st.info("No data.")
             return pd.DataFrame(columns=["user_id", "n"])
         
         df_plot = df.set_index("x")[["number_of_users"]]
-        st.bar_chart(df_plot, height=320, use_container_width=True)
+        st.bar_chart(df_plot, height=320, use_container_width=True) #plot a bar chart
 
         if show_table:
             with st.expander("Show aggregated counts", expanded=False):
@@ -291,11 +293,11 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
         "event_names": names,
         "use_file_scope": len(ids) > 0,
         "file_id": ids,
-    }
-    df_early_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
+    } #prepare the query parameters
+    df_early_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params) #execute query for the first part
     df_early_quartile["ts"] = pd.to_datetime(df_early_quartile["ts"])
     x_name = "total_hours_spent_on_at_least_one_exam_at_a_time_in_earlier_quartile"
-    early_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_early_quartile, x_name)
+    early_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_early_quartile, x_name) #perform computation
 
     params = {
         "start_ts": split_ts,
@@ -304,18 +306,18 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
         "event_names": names,
         "use_file_scope": len(ids) > 0,
         "file_id": ids,
-    }
-    df_later_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params)
+    } #prepare the query parameters
+    df_later_quartile = pd.read_sql_query(HOURS_SPENT_ON_ONE_OR_MORE_EXAMS_AT_A_TIME_IN_FIRST_AND_LATER_QUARTILES_SQL, conn, params=params) #execute query for the second part
     df_later_quartile["ts"] = pd.to_datetime(df_later_quartile["ts"])
     y_name = "total_hours_spent_on_at_least_one_exam_at_a_time_in_later_quartile"
-    later_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_later_quartile, y_name)
+    later_total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_later_quartile, y_name) #perform computation
 
-    df_plot = early_total_times.merge(later_total_times, on="user_id", how="outer")
-    df_plot = df_plot.fillna(0)
-    df_plot = df_plot[df_plot["user_id"] != 0]
+    df_plot = early_total_times.merge(later_total_times, on="user_id", how="outer") #merge dataframes for simpler handling
+    df_plot = df_plot.fillna(0) #replace the resulting NaN values with zeros
+    df_plot = df_plot[df_plot["user_id"] != 0] #in case either part of the duration has no data, remove dummy rows
 
     df_plot = df_plot[[x_name, y_name]]
-    if normalized:
+    if normalized: #if we want to normalize the results, we simply compute and display the average hours spent by a user on at least one exam at a time
         early_mean = df_plot[x_name].mean()
         later_mean = df_plot[y_name].mean()
         mes = "Average total hours spent on at least one exam at a time per student in earlier quartile of the interval: "+str(early_mean)
@@ -323,7 +325,7 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
         mes2 = "Average total hours spent on at least one exam at a time per student in later quartile of the interval: "+str(later_mean)
         st.caption(mes2)
 
-    else:
+    else: #if we do not want to normalize (default), we plot a scatter plot
         st.scatter_chart(df_plot, x=x_name, y=y_name)
 
     if show_table:
