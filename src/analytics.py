@@ -645,3 +645,58 @@ def plot_top_events(
     return df
 
 
+def plot_active_days_above_threshold(
+    conn,
+    start_date: date,
+    end_date: date,
+    event_names: Sequence[str] | None = None,
+    *,
+    threshold: int = 0,  
+    file_ids: list[int] | None = None,
+    show_table: bool = True
+) -> pd.DataFrame:
+
+    if start_date > end_date:
+        st.error("Invalid date range: start_date > end_date")
+        return pd.DataFrame(columns=["day", "n"])
+
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+
+    names = list(event_names) if event_names else []
+    ids = list(file_ids) if file_ids else []
+
+    params = {
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_ids": ids,
+    }
+
+    df = pd.read_sql_query(DAILY_ACTIVITY_SQL, conn, params=params)
+
+    if df.empty:
+        st.info("No activity data.")
+        return df
+
+    df = df.copy()
+    df["day"] = pd.to_datetime(df["day"]).dt.date
+    df["n"] = df["n"].astype(int)
+
+    df_filtered = df[df["n"] > threshold]
+
+    if df_filtered.empty:
+        st.info(f"No days exceed threshold ({threshold}).")
+        return df_filtered
+
+    chart_df = df_filtered.set_index("day")[["n"]]
+
+    st.bar_chart(chart_df, height=320, use_container_width=True)
+
+    if show_table:
+        with st.expander("Show filtered days", expanded=False):
+            st.dataframe(df_filtered, use_container_width=True)
+
+    return df_filtered
+
