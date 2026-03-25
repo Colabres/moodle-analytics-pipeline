@@ -54,11 +54,13 @@ def predict(data: pl.DataFrame, model: LGBMClassifier):
     probabilities = model.predict_proba(data)
     return probabilities[:,1]
 
-#Remove courses that are zombie with given probability treshold
-def zombie_remover(file: str, new_file_name: str, treshold: float, probabilities: list):
+#complies and writes the output file
+def output_file_complier(file: str, new_file_name: str, probabilities: list):
     data = pl.read_csv(file, separator=";")
-    data = data.with_columns(pl.Series('zombie', probabilities))
-    data = data.filter(pl.col('zombie') <= treshold)
+    insisu = data["coursesisuid"].is_not_null().cast(pl.Int8)
+    data = data.with_columns([pl.Series('zombie', probabilities), pl.Series("insisu", insisu)])
+    column_order = ["zombie", "courseid", "insisu", "students", "category", "categoryparent", "visible", "datecreated", "lastaccess", "assignments", "assignmentsvisible", "attendance", "attendancevisible", "book", "bookvisible", "chats", "chatsvisible", "choices", "choicesvisible", "choicegroup", "choicegroupvisible", "databases", "databasesvisible", "feedbacks", "feedbacksvisible", "folders", "foldersvisible", "forums", "forumsvisible", "glossaries", "glossariesvisible", "h5p", "h5pvisible", "imscps", "imscpsvisible", "labels", "labelsvisible", "lessons", "lessonsvisible", "ltis", "ltisvisible", "pages", "pagesvisible", "quizzes", "quizzesvisible", "resources", "resourcesvisible", "scorms", "scormsvisible", "urls", "urlsvisible", "wikis", "wikisvisible", "workshops", "workshopsvisible"]
+    data = data.select(column_order)
     data.write_csv(new_file_name)
 
 #Preview function, probably not right???
@@ -72,7 +74,7 @@ def show_zombie_percent(file: str, limit: int = 200) -> pl.DataFrame:
 data = form_dataframe("moodlemodules_2026.csv")
 model = load_model("model.pkl")
 probabilities = predict(data, model)
-zombie_remover("moodlemodules_2026.csv", "predictions_proba.csv", 1, probabilities)
+output_file_complier("moodlemodules_2026.csv", "predictions_proba.csv", probabilities)
 print(show_zombie_percent("moodlemodules_2026.csv", 10))
 
 
