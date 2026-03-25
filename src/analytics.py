@@ -700,3 +700,78 @@ def plot_active_days_above_threshold(
 
     return df_filtered
 
+
+WEEKDAY_ACTIVITY_SQL = """
+SELECT EXTRACT(DOW FROM ts) AS weekday, COUNT(*) AS n
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
+GROUP BY weekday
+ORDER BY weekday;
+"""
+
+def plot_weekday_activity(
+    conn,
+    start_date: date,
+    end_date: date,
+    event_names: Sequence[str] | None = None,
+    *,
+    threshold: int = 0,
+    file_ids: list[int] | None = None,
+    show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 60 * 24   
+) -> pd.DataFrame:
+
+    if by_interval:
+        df = compute_number_users_by_time_interval(
+            conn,
+            start_date,
+            end_date,
+            file_ids=file_ids,
+            events=event_names,
+            interval=interval
+        )
+
+        if df is None or df.empty:
+            st.info("No weekday activity data.")
+            return pd.DataFrame()
+
+        df = df.copy()
+        df["weekday"] = [i % 7 for i in df["x"]]
+
+        df_grouped = df.groupby("weekday")["number_of_users"].mean().reset_index()
+
+        weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        df_grouped["weekday_name"] = df_grouped["weekday"].astype(int).map(lambda x: weekday_names[x])
+
+        chart_df = df_grouped.set_index("weekday_name")[["number_of_users"]]
+        st.bar_chart(chart_df, height=320, use_container_width=True)
+
+        if show_table:
+            with st.expander("Show aggregated counts", expanded=False):
+                st.dataframe(df_grouped, use_container_width=True)
+
+        return df_grouped
+
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+    params = _build_params(start_ts, end_ts, event_names, file_ids)
+
+    df = pd.read_sql_query(WEEKDAY_ACTIVITY_SQL, conn, params=params)
+
+    if df.empty:
+        st.info("No weekday activity data.")
+        return df
+
+    df["weekday"] = df["weekday"].astype(int)
+    df["n"] = df["n"].astype(int)
+
+    weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    df["weekday_name"] = df["weekday"].map(lambda x: weekday_names[x])
+
+    chart_df = df.set_index("weekday_name")[["n"]]
+    st.bar_chart(chart_df, height=320, use_container_width=True)
+
+    return df
+
