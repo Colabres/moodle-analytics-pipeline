@@ -8,8 +8,7 @@ import optuna
 import pickle
 
 #format training data
-def form_train_dataframe(file):
-    df = pl.read_csv(file, has_header=True)
+def preprocess_train_dataframe(df: pl.DataFrame):
     df = df.drop_nans()
     y_train = df["zombie"]
     x_train = df.drop(["zombie", "courseid", "activitysum"])  
@@ -18,7 +17,8 @@ def form_train_dataframe(file):
     return x_train, y_train
 
 #create training data sets
-x_train, y_train = form_train_dataframe("trainmoodlemodules_labeled.csv")
+df = pl.read_csv("trainmoodlemodules_labeled.csv", has_header=True)
+x_train, y_train = preprocess_train_dataframe(df)
 kf = KFold(shuffle=True)
 
 #objective function
