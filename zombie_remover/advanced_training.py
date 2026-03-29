@@ -16,34 +16,69 @@ def preprocess_train_dataframe(df: pl.DataFrame):
     y_train = y_train.to_pandas()
     return x_train, y_train
 
-#create training data sets
-df = pl.read_csv("trainmoodlemodules_labeled.csv", has_header=True)
-x_train, y_train = preprocess_train_dataframe(df)
-kf = KFold(shuffle=True)
+# #create training data sets
+# df = pl.read_csv("trainmoodlemodules_labeled.csv", has_header=True)
+# x_train, y_train = preprocess_train_dataframe(df)
+# kf = KFold(shuffle=True)
 
 #objective function
-def objective_lgbm(trial):
-    parameters = {
-        "n_estimators": trial.suggest_int("n_estimators", 10, 2000),
-        "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.1, log=True),
-        "subsample": trial.suggest_float("subsample", 0.05, 1),
-        "subsample_freq": 1,
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.05, 1),
-        "min_child_samples": trial.suggest_int("min_child_samples", 1, 100),
-        "num_leaves": trial.suggest_int("num_leaves", 2, 2**10),
-        }
-    classifier = LGBMClassifier(**parameters, verbose=-1)
-    return np.mean(cross_val_score(classifier, x_train, y_train, cv = kf, scoring="neg_log_loss"))
+# def objective_lgbm(trial):
+#     parameters = {
+#         "n_estimators": trial.suggest_int("n_estimators", 10, 2000),
+#         "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.1, log=True),
+#         "subsample": trial.suggest_float("subsample", 0.05, 1),
+#         "subsample_freq": 1,
+#         "colsample_bytree": trial.suggest_float("colsample_bytree", 0.05, 1),
+#         "min_child_samples": trial.suggest_int("min_child_samples", 1, 100),
+#         "num_leaves": trial.suggest_int("num_leaves", 2, 2**10),
+#         }
+#     classifier = LGBMClassifier(**parameters, verbose=-1)
+#     return np.mean(cross_val_score(classifier, x_train, y_train, cv = kf, scoring="neg_log_loss"))
 
 #optimize hyperparameters
-study = optuna.create_study(direction="maximize")
-study.optimize(objective_lgbm, n_trials=100)
+# study = optuna.create_study(direction="maximize")
+# study.optimize(objective_lgbm, n_trials=100)
 
-#Train a model with the best parameters
-model = LGBMClassifier(**study.best_params)
-model.fit(x_train, y_train)
+# #Train a model with the best parameters
+# model = LGBMClassifier(**study.best_params)
+# model.fit(x_train, y_train)
 
 #save model
 model_name = "model" #MODEL NAME AS INPUT HERE
-with open(f'{model_name}.pkl','wb') as f:
-    pickle.dump(model,f)
+# with open(f'{model_name}.pkl','wb') as f:
+#     pickle.dump(model,f)
+
+
+def train_advanced(df: pl.DataFrame):
+    x_train, y_train = preprocess_train_dataframe(df)
+    kf = KFold(shuffle=True)
+
+    def objective_lgbm(trial):
+        parameters = {
+            "n_estimators": trial.suggest_int("n_estimators", 10, 2000),
+            "learning_rate": trial.suggest_float("learning_rate", 0.001, 0.1, log=True),
+            "subsample": trial.suggest_float("subsample", 0.05, 1),
+            "subsample_freq": 1,
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.05, 1),
+            "min_child_samples": trial.suggest_int("min_child_samples", 1, 100),
+            "num_leaves": trial.suggest_int("num_leaves", 2, 2**10),
+        }
+        classifier = LGBMClassifier(**parameters, verbose=-1)
+        return np.mean(
+            cross_val_score(
+                classifier,
+                x_train,
+                y_train,
+                cv=kf,
+                scoring="neg_log_loss"
+            )
+        )
+
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective_lgbm, n_trials=100)
+
+    model = LGBMClassifier(**study.best_params)
+    model.fit(x_train, y_train)
+
+    with open(model_name, "wb") as f:
+        pickle.dump(model, f)

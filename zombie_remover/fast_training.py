@@ -1,6 +1,4 @@
-import numpy as np
 import polars as pl
-import pandas as pd
 from lightgbm import LGBMClassifier
 import pickle
 
@@ -16,14 +14,22 @@ def preprocess_train_dataframe(df: pl.DataFrame):
 parameters = {'n_estimators': 1468, 'learning_rate': 0.005602358951035724, 'subsample': 0.6958987762879659, 'colsample_bytree': 0.99490517421889, 'min_child_samples': 15, 'num_leaves': 121}
 
 #create training data sets
-df = pl.read_csv("trainmoodlemodules_labeled.csv", has_header=True)
-x_train, y_train = preprocess_train_dataframe(df)
+# df = pl.read_csv("trainmoodlemodules_labeled.csv", has_header=True)
+# x_train, y_train = preprocess_train_dataframe(df)
 
 #Train a model with the best parameters
-model = LGBMClassifier(**parameters)
-model.fit(x_train, y_train)
+# model = LGBMClassifier(**parameters)
+# model.fit(x_train, y_train)
 
 #save model
 model_name = "model" #MODEL NAME AS INPUT HERE
-with open(f'{model_name}.pkl','wb') as f:
-    pickle.dump(model,f)
+# with open(f'{model_name}.pkl','wb') as f:
+#     pickle.dump(model,f)
+
+def train_fast(df: pl.DataFrame):
+    x_train, y_train = preprocess_train_dataframe(df)
+    model = LGBMClassifier(**parameters)
+    model.fit(x_train, y_train)
+
+    with open(model_name, "wb") as f:
+        pickle.dump(model, f)

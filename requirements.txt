@@ -2,3 +2,7 @@ streamlit
 psycopg[binary]
 matplotlib
 polars
+pandas
+scikit-learn
+lightgbm
+optuna

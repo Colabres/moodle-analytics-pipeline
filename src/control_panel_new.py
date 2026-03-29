@@ -5,6 +5,9 @@ from datetime import date, timedelta
 from src.event_buckets import EVENT_BUCKETS
 from src.ingest import get_ingest_files
 from zombie_remover.data_verifying_functions import good_for_training, good_for_predictions 
+from zombie_remover.fast_training import train_fast
+from zombie_remover.predictions_runtime import predict_zombies, show_zombie_percent
+from zombie_remover.advanced_training import train_advanced
 
 # Plot “IDs” are stable keys you can later map to real plotting functions
 PLOT_OPTIONS = [
@@ -203,15 +206,23 @@ def _render_zombie_remover_controls() -> dict:
         key="zr_train_upload",
     )
 
+ 
+
     if train_uploaded is not None:
         train_df = load_csv(io.BytesIO(train_uploaded.getvalue()))
-        st.write("Detected columns:", train_df.columns)
-        st.write("Validator result:", good_for_training(train_df))
-        st.write("First column repr:", repr(train_df.columns[0]))
+
         train_valid = good_for_training(train_df)
 
         if train_valid:
             st.success("Training file verified.")
+
+            if st.button("Train model", key="zr_train_button"):
+                if advanced_mode:
+                    train_advanced(train_df)
+                    st.success("Model trained and saved.")
+                else:
+                    train_fast(train_df)
+                    st.success("Model trained and saved.")
         else:
             st.error("Training file format is invalid.")
 
@@ -227,6 +238,9 @@ def _render_zombie_remover_controls() -> dict:
 
         if predict_valid:
             st.success("Prediction file verified.")
+            probabilities = predict_zombies(predict_df)
+            preview_df = show_zombie_percent(predict_df, probabilities, limit=200)
+            st.dataframe(preview_df.to_pandas(), use_container_width=True)
         else:
             st.error("Prediction file format is invalid.")
 
