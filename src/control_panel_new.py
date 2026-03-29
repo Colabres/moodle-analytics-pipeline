@@ -1,7 +1,10 @@
 import streamlit as st
+import polars as pl
+import io
 from datetime import date, timedelta
 from src.event_buckets import EVENT_BUCKETS
 from src.ingest import get_ingest_files
+from zombie_remover.data_verifying_functions import good_for_training, good_for_predictions 
 
 # Plot “IDs” are stable keys you can later map to real plotting functions
 PLOT_OPTIONS = [
@@ -18,7 +21,15 @@ ADDITIONAL_ANALYSIS_OPTIONS = [
     ("exam_hours_first_vs_later_quartile", "Exam hours: first vs later quartile"),
 ]
 
+def load_csv(file) -> pl.DataFrame:
+    df = pl.read_csv(file, separator=";", infer_schema_length=1000)
 
+    if len(df.columns) == 1:
+        file.seek(0)
+        df = pl.read_csv(file, infer_schema_length=1000)
+
+    return df
+    
 def _checkbox_multiselect(label: str, options: list[str], key_prefix: str) -> list[str]:
     """
     Renders a checkbox list and returns selected option strings.
@@ -181,6 +192,49 @@ def _render_additional_analysis_controls() -> dict:
         "run_clicked": run_clicked,
     }
 
+def _render_zombie_remover_controls() -> dict:
+    st.markdown("### Zombie Remover")
+
+    advanced_mode = st.checkbox("Advanced training", key="zr_advanced")
+
+    train_uploaded = st.file_uploader(
+        "Upload labeled training CSV",
+        type=["csv"],
+        key="zr_train_upload",
+    )
+
+    if train_uploaded is not None:
+        train_df = load_csv(io.BytesIO(train_uploaded.getvalue()))
+        st.write("Detected columns:", train_df.columns)
+        st.write("Validator result:", good_for_training(train_df))
+        st.write("First column repr:", repr(train_df.columns[0]))
+        train_valid = good_for_training(train_df)
+
+        if train_valid:
+            st.success("Training file verified.")
+        else:
+            st.error("Training file format is invalid.")
+
+    predict_uploaded = st.file_uploader(
+        "Upload prediction CSV",
+        type=["csv"],
+        key="zr_predict_upload",
+    )
+
+    if predict_uploaded is not None:
+        predict_df = load_csv(io.BytesIO(predict_uploaded.getvalue()))
+        predict_valid = good_for_predictions(predict_df)
+
+        if predict_valid:
+            st.success("Prediction file verified.")
+        else:
+            st.error("Prediction file format is invalid.")
+
+    return {
+        "advanced_mode": advanced_mode,
+        "train_uploaded": train_uploaded,
+        "predict_uploaded": predict_uploaded,
+    }
 
 def render_control_panel() -> dict:
     st.subheader("Control Panel")
@@ -189,13 +243,21 @@ def render_control_panel() -> dict:
 
     st.divider()
 
-    additional_config = _render_additional_analysis_controls()
+    #additional_config = _render_additional_analysis_controls()
+    left_col, right_col = st.columns(2, gap="large")
+
+    with left_col:
+        additional_config = _render_additional_analysis_controls()
+
+    with right_col:
+        zombie_config = _render_zombie_remover_controls()
 
     st.divider()
 
     config = {
         "standard": standard_config,
         "additional": additional_config,
+        "zombie": zombie_config
     }
 
     # UI-only feedback for standard controls

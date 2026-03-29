@@ -11,4 +11,19 @@ def good_for_predictions(data: pl.DataFrame) -> bool:
         return True
     else:
         return False
-    
+
+
+if __name__ == "__main__":
+    # change path to your actual file
+    file_path = "trainmoodlemodules_labeled.csv"
+
+    df = pl.read_csv(file_path)
+
+    print("Detected columns:")
+    print(df.columns)
+
+    print("\nFirst column repr (important):")
+    print(repr(df.columns[0]))
+
+    print("\nIs valid training file?")
+    print(good_for_training(df))
