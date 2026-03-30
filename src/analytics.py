@@ -555,7 +555,8 @@ def plot_component_distribution(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
-    threshold: int = 0,    
+    threshold: int = 0,   
+    by_interval: bool = False, 
     file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
@@ -584,6 +585,7 @@ def plot_top_events(
     event_names: Sequence[str] | None = None,
     *,
     threshold: int = 0,    
+    by_interval: bool = False,
     file_ids: list[int] | None = None,
     top_n: int = 10,
     show_table: bool = True
@@ -613,6 +615,7 @@ def plot_active_days_above_threshold(
     event_names: Sequence[str] | None = None,
     *,
     threshold: int = 0,  
+    by_interval: bool = False,
     file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
