@@ -21,6 +21,9 @@ data/
 #synthetic data
 synthetic/
 
+#data exploration
+Data_exploraatioJT.ipynb
+
 # VS Code
 .vscode/
 
