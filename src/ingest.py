@@ -117,8 +117,8 @@ def transfer_to_db(df: pl.DataFrame,file_id: int ,filename: str) -> Tuple[int, i
     admin_event_names = EVENT_BUCKETS.get("Admin activity", [])
     admin_ids_detected = set(find_user_ids(df, admin_event_names))
 
-    # 2.2️⃣ Compute active ids (from this file)
-    active_event_names = EVENT_BUCKETS.get("Quizzes / Exams", [])
+    # 2.2️⃣ Compute active ids (from this file) 
+    active_event_names = EVENT_BUCKETS.get("Quizzes / Exams", []) #add bucket forums and discussions
     active_user_ids = set(find_user_ids(df, active_event_names))
 
     # 2.3️⃣ All user ids present in this file (non-null only)
