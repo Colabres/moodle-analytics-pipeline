@@ -1,6 +1,6 @@
 import pickle
 import polars as pl
-
+import os
 
 def preprocess(raw_data: pl.DataFrame) -> pl.DataFrame:
     data = raw_data.clone()
@@ -148,4 +148,6 @@ def output_file_complier(
     ]
 
     data = data.select(column_order)
-    data.write_csv(new_file_name)
+    os.makedirs("outputs", exist_ok=True)
+    output_path = os.path.join("outputs", new_file_name)
+    data.write_csv(output_path)

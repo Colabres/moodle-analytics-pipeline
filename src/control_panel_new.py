@@ -6,7 +6,7 @@ from src.event_buckets import EVENT_BUCKETS
 from src.ingest import get_ingest_files
 from zombie_remover.data_verifying_functions import good_for_training, good_for_predictions 
 from zombie_remover.fast_training import train_fast
-from zombie_remover.predictions_runtime import predict_zombies, show_zombie_percent
+from zombie_remover.predictions_runtime import predict_zombies, show_zombie_percent, output_file_complier
 from zombie_remover.advanced_training import train_advanced
 
 # Plot “IDs” are stable keys you can later map to real plotting functions
@@ -240,6 +240,7 @@ def _render_zombie_remover_controls() -> dict:
             st.success("Prediction file verified.")
             probabilities = predict_zombies(predict_df)
             preview_df = show_zombie_percent(predict_df, probabilities, limit=200)
+            output_file_complier(predict_df,"zombie.csv",probabilities)
             st.dataframe(preview_df.to_pandas(), use_container_width=True)
         else:
             st.error("Prediction file format is invalid.")
