@@ -156,6 +156,7 @@ from src.analytics import (
     plot_hours_spent_on_one_or_more_exams_at_a_time,
     plot_hourly_activity,    
     plot_weekly_activity,
+    plot_weekday_activity,
     plot_component_distribution,
     plot_top_events,
 
@@ -167,6 +168,7 @@ PLOT_REGISTRY = {
     "daily_activity": plot_daily_activity,
     "hourly_activity": plot_hourly_activity,
     "weekly_trend": plot_weekly_activity,
+    "weekday_activity": plot_weekday_activity,
     "component_distribution": plot_component_distribution,
     "top_event_types": plot_top_events,
 }
@@ -174,6 +176,7 @@ PLOT_TITLES = {
     "daily_activity": "Daily activity (events per day)",
     "hourly_activity": "Hourly activity",
     "weekly_trend": "Weekly activity trend",
+    "weekday_activity": "Weekday activity",
     "component_distribution": "Component distribution",
     "top_event_types": "Top event types",
 }

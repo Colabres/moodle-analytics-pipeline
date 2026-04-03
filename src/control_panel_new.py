@@ -14,6 +14,7 @@ PLOT_OPTIONS = [
     ("daily_activity", "Daily activity (events per day)"),
     ("hourly_activity", "Hourly activity"),
     ("weekly_trend", "Weekly trend"),
+    ("weekday_activity", "Weekday activity"),
     ("top_event_types", "Top event types"),
     ("component_distribution", "Component distribution"),
 ]
@@ -239,7 +240,7 @@ def _render_zombie_remover_controls() -> dict:
         if predict_valid:
             st.success("Prediction file verified.")
             probabilities = predict_zombies(predict_df)
-            preview_df = show_zombie_percent(predict_df, probabilities, limit=200)
+            preview_df = show_zombie_percent(predict_df, probabilities, limit=1000)
             output_file_complier(predict_df,"zombie.csv",probabilities)
             st.dataframe(preview_df.to_pandas(), use_container_width=True)
         else:
