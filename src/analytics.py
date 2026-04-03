@@ -57,6 +57,15 @@ WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
 ORDER BY ts;
 """
 
+HOURS_SPENT_ON_EACH_EXAM_SQL = """
+SELECT context, user_id, event_name, ts
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
+ORDER BY context, user_id, ts;
+"""
+
 def compute_number_users_by_time_interval(
     conn,
     start_date: date,
@@ -285,9 +294,113 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
         averages.append(total_times["total hours"].mean()) #add average hours spent
 
     bar_names = ["1st quartile", "2nd quartile", "3rd quartile", "4th quartile"] #setup the x axis for bar plot
-    df = pd.DataFrame({"quartile": pd.Series(bar_names), "average hours spent": pd.Series(averages)})
-    df_plot = df.set_index("quartile")[["average hours spent"]] #set quartile as index
+    df = pd.DataFrame({"quartile": pd.Series(bar_names), "average hours spent on at least one exam at a time": pd.Series(averages)})
+    df_plot = df.set_index("quartile")[["average hours spent on at least one exam at a time"]] #set quartile as index
     st.bar_chart(df_plot, height=320, use_container_width=True) #plot a bar chart
+
+    if show_table:
+        with st.expander("Show aggregated counts", expanded=False):
+            st.dataframe(df_plot, use_container_width=True)
+    return df_plot
+
+def compute_total_hours_on_a_specific_exam(table:pd.DataFrame, colname:str, colname2:str):
+    ac = [] #total hours spent on each exam
+    contxs = [] #list of context names
+    user_n = [] #number of unique users per exam
+    if len(table.index) == 0: #no data
+        return pd.DataFrame({"exam": pd.Series(["emptyrow"]), colname: pd.Series([0]), colname2: pd.Series([0])})
+        #return dummy row to be removed later
+    initial = True
+
+    for r in table.itertuples(index=False):
+        if initial: #Initialize
+            initial = False
+            context_hours = 0
+            user_hours = 0
+            cur_context = r.context
+            cur_user = r.user_id
+            n_users = 0
+            counter = 0
+        
+        if r.context != cur_context: #Check if context has changed
+            contxs.append(cur_context)
+            context_hours += user_hours
+            ac.append(context_hours)
+            n_users += 1
+            user_n.append(n_users)
+            n_users = 0
+            context_hours = 0
+            cur_context = r.context
+            cur_user = r.user_id
+            user_hours = 0
+            counter = 0
+        
+        if r.user_id != cur_user: #Check if user has changed
+            context_hours += user_hours
+            user_hours = 0
+            counter = 0
+            cur_user = r.user_id
+            n_users += 1
+
+        if r.event_name == "Tenttiin vastaaminen aloitettu":
+            if counter == 0:
+                start = r.ts #last recorded exam start
+            counter += 1
+        
+        else: #in other words, if event_name == "Tenttivastaus palautettu"
+            counter -= 1
+
+            if counter == 0: #no more ongoing exams
+                user_hours += (r.ts-start).total_seconds()/3600 #1h = 3600s
+            
+            elif counter < 0: #if event_name "Tenttivastaus palautettu" for any reason comes before a corresponding "Tenttiin vastaaminen aloitettu"
+                counter = 0 #these cases are ignored
+    contxs.append(cur_context) #finalize
+    ac.append(context_hours)
+    n_users += 1
+    user_n.append(n_users)
+    return pd.DataFrame({"exam": pd.Series(contxs), colname: pd.Series(ac), colname2: pd.Series(user_n)})
+
+def plot_hours_spent_on_each_exam(
+    conn,
+    start_date: date,
+    end_date: date,
+    *,
+    file_id: list[int] | None = None,
+    show_table: bool = True,
+    by_interval: bool = False,
+    threshold: int = 0, 
+    interval: int = 30
+) -> pd.DataFrame:
+    
+    if start_date > end_date: #validate the start and end dates
+        st.error("Invalid date range: start_date > end_date")
+        return pd.DataFrame(columns=["user_id", "n"])
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+    
+    names = ["Tenttivastaus palautettu", "Tenttiin vastaaminen aloitettu"] #we are only interested in exam start and end times
+    ids = list(file_id) if file_id else [] #check which file_ids to include in the query
+
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    } #prepare query parameters
+    df = pd.read_sql_query(HOURS_SPENT_ON_EACH_EXAM_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    
+    df["ts"] = pd.to_datetime(df["ts"])
+    df_plot = compute_total_hours_on_a_specific_exam(df, "total hours", "number of users") #perform computation
+    df_plot = df_plot[df_plot["exam"] != "emptyrow"] #remove dummy rows
+    df_plot["average hours spent"] = df_plot["total hours"]/df_plot["number of users"]
+    df_plot = df_plot.drop(columns=["total hours", "number of users"])
+
+    df_plot = df_plot.set_index("exam")[["average hours spent"]]
+    st.bar_chart(df_plot, height=320, use_container_width=True)
 
     if show_table:
         with st.expander("Show aggregated counts", expanded=False):
