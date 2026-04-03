@@ -71,6 +71,7 @@ def show_zombie_percent(
     data = raw_data.clone()
     data = data.with_columns(pl.Series("zombie", probabilities))
     data = data.select(["courseid", "zombie"])
+    data = data.sort("courseid", descending=True)
     return data.limit(limit)
 
 
