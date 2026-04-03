@@ -66,6 +66,16 @@ WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
 ORDER BY context, user_id, ts;
 """
 
+NUMBER_OF_SUBMISSIONS_PER_CONTEXT_SQL = """
+SELECT context, COUNT(*) AS submissions_n, COUNT(DISTINCT user_id) AS users_n
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
+GROUP BY context
+ORDER BY context;
+"""
+
 def compute_number_users_by_time_interval(
     conn,
     start_date: date,
@@ -395,11 +405,58 @@ def plot_hours_spent_on_each_exam(
     
     df["ts"] = pd.to_datetime(df["ts"])
     df_plot = compute_total_hours_on_a_specific_exam(df, "total hours", "number of users") #perform computation
+    df_plot["number of users"] = df_plot["number of users"].astype(int)
     df_plot = df_plot[df_plot["exam"] != "emptyrow"] #remove dummy rows
-    df_plot["average hours spent"] = df_plot["total hours"]/df_plot["number of users"]
+    df_plot["average hours spent per user"] = df_plot["total hours"]/df_plot["number of users"]
     df_plot = df_plot.drop(columns=["total hours", "number of users"])
 
-    df_plot = df_plot.set_index("exam")[["average hours spent"]]
+    df_plot = df_plot.set_index("exam")[["average hours spent per user"]]
+    st.bar_chart(df_plot, height=320, use_container_width=True)
+
+    if show_table:
+        with st.expander("Show aggregated counts", expanded=False):
+            st.dataframe(df_plot, use_container_width=True)
+    return df_plot
+
+def plot_number_of_submissions_per_context(
+    conn,
+    start_date: date,
+    end_date: date,
+    *,
+    file_id: list[int] | None = None,
+    show_table: bool = True,
+    by_interval: bool = False,
+    threshold: int = 0, 
+    interval: int = 30
+) -> pd.DataFrame:
+    
+    if start_date > end_date: #validate the start and end dates
+        st.error("Invalid date range: start_date > end_date")
+        return pd.DataFrame(columns=["user_id", "n"])
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+    
+    names = ["Tenttivastaus palautettu", "Palautus on lähetetty"] #we are only interested in submissions, be they exam or exercise submissions
+    ids = list(file_id) if file_id else [] #check which file_ids to include in the query
+
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    } #prepare query parameters
+    df = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_PER_CONTEXT_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    
+    df["submissions_n"] = df["submissions_n"].astype(int)
+    df["users_n"] = df["users_n"].astype(int)
+    df = df[df["users_n"] > 0] #to avoid dividing by zero
+    df["average number of submissions per user"] = df["submissions_n"]/df["users_n"]
+
+    df_plot = df.drop(columns=["users_n", "submissions_n"])
+    df_plot = df_plot.set_index("context")[["average number of submissions per user"]]
     st.bar_chart(df_plot, height=320, use_container_width=True)
 
     if show_table:
