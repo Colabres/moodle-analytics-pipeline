@@ -8,6 +8,7 @@ from math import floor
 
 import pandas as pd
 import streamlit as st
+import altair as alt
 
 
 DAILY_ACTIVITY_SQL = """
@@ -909,3 +910,92 @@ def plot_weekday_activity(
 
     return df
 
+
+
+USER_LAST_ACTIVITY_INTENSITY_SQL = """
+WITH user AS 
+(
+    SELECT user_id, COUNT(*) AS activity, MAX(ts) AS latest_act
+    FROM moodle.event
+    WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+        AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+        AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
+    GROUP BY user_id
+),
+
+statistics AS 
+(
+    SELECT AVG(activity) AS ma, VAR_POP(activity) as var
+    FROM user
+)
+
+SELECT 
+    user.user_id, 
+    user.latest_act, 
+    (user.activity::float - statistics.ma) / NULLIF(SQRT(statistics.var), 0) AS intensity
+FROM user
+CROSS JOIN statistics
+"""
+
+
+
+def plot_last_activity_scatter(
+    conn,
+    start_date: date,
+    end_date: date,
+    event_names: Sequence[str] | None = None,
+    *,
+    file_ids: list[int] | None = None,
+    show_table: bool = True
+) -> pd.DataFrame:
+
+    if start_date > end_date:
+        st.error("Invalid date range")
+        return pd.DataFrame()
+
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+
+    names = list(event_names) if event_names else []
+    ids = list(file_ids) if file_ids else []
+
+    params = {
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    }
+
+    df = pd.read_sql_query(USER_LAST_ACTIVITY_INTENSITY_SQL, conn, params=params)
+
+    if df.empty:
+        st.info("No user activity data.")
+        return df
+
+    df = df.copy()
+    df["latest_act"] = pd.to_datetime(df["latest_act"])
+    df["intensity"] = df["intensity"].fillna(0)
+
+    df["y"] = np.random.uniform(-0.05, 0.05, len(df))
+
+    chart = alt.Chart(df).mark_circle(size=60).encode(
+        x=alt.X("latest_act:T", title="Time (last activity)"),
+        y=alt.Y("y:Q", axis=None),  
+        color=alt.Color(
+            "intensity:Q",
+            scale=alt.Scale(scheme="viridis"),
+            title="Activity intensity"
+        ),
+        tooltip=["user_id", "latest_act", "intensity"]
+    ).properties(
+        height=200
+    ).interactive()
+
+    st.altair_chart(chart, use_container_width=True)
+
+    if show_table:
+        with st.expander("Show user data", expanded=False):
+            st.dataframe(df, use_container_width=True)
+
+    return df
