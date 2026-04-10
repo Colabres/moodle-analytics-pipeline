@@ -9,6 +9,7 @@ from math import floor
 import pandas as pd
 import streamlit as st
 import altair as alt
+import numpy as np
 
 
 DAILY_ACTIVITY_SQL = """
@@ -75,6 +76,15 @@ WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
   AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
 GROUP BY context
 ORDER BY context;
+"""
+
+NUMBER_OF_UNIQUE_USERS_SQL= """
+SELECT user_id, COUNT(DISTINCT context) AS total_users
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
+GROUP BY user_id
+ORDER BY user_id;
 """
 
 def compute_number_users_by_time_interval(
@@ -459,6 +469,63 @@ def plot_number_of_submissions_per_context(
     df_plot = df.drop(columns=["users_n", "submissions_n"])
     df_plot = df_plot.set_index("context")[["average number of submissions per user"]]
     st.bar_chart(df_plot, height=320, use_container_width=True)
+
+    if show_table:
+        with st.expander("Show aggregated counts", expanded=False):
+            st.dataframe(df_plot, use_container_width=True)
+    return df_plot
+
+def plot_portion_of_users_per_context(
+    conn,
+    start_date: date,
+    end_date: date,
+    *,
+    file_id: list[int] | None = None,
+    show_table: bool = True,
+    by_interval: bool = False,
+    threshold: int = 0, 
+    interval: int = 30
+) -> pd.DataFrame:
+    
+    if start_date > end_date: #validate the start and end dates
+        st.error("Invalid date range: start_date > end_date")
+        return pd.DataFrame(columns=["user_id", "n"])
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+    
+    names = ["Tenttivastaus palautettu", "Palautus on lähetetty"] #we are only interested in submissions, be they exam or exercise submissions
+    ids = list(file_id) if file_id else [] #check which file_ids to include in the query
+
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    } #prepare query parameters
+    df = pd.read_sql_query(NUMBER_OF_UNIQUE_USERS_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    n = len(df.index) #total number of all users in the interval
+
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    } #prepare query parameters
+    df = pd.read_sql_query(NUMBER_OF_SUBMISSIONS_PER_CONTEXT_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    
+    df["users_n"] = df["users_n"].astype(int)
+    df["portion of users who submitted"] = df["users_n"]/n
+
+    df_plot = df.drop(columns=["users_n", "submissions_n"])
+    df_plot = df_plot.set_index("context")[["portion of users who submitted"]]
+    st.bar_chart(df_plot, height=320, use_container_width=True)
+    string = "Total number of users within the given time interval: "+str(n)
+    st.caption(string)
 
     if show_table:
         with st.expander("Show aggregated counts", expanded=False):
