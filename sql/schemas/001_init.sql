@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS moodle.ingest_file (
   file_id      BIGSERIAL PRIMARY KEY,
   filename     TEXT NOT NULL,
   uploaded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  total_users        INTEGER,
+  active_users       INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS moodle.event (

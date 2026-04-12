@@ -119,6 +119,24 @@ if run_import:
 
                 admin_bucket_event_rows = cur.fetchall()
 
+                cur.execute("""
+                    SELECT file_id, filename, user_count, active_user_count
+                    FROM moodle.ingest_file
+                    WHERE file_id = %s
+                """, (file_id,))
+
+                ingest_file_row = cur.fetchone()
+
+            
+        if ingest_file_row is not None:
+            _, filename_db, user_count_db, active_user_count_db = ingest_file_row
+
+            st.subheader("Ingest file info")
+            col1, col2 = st.columns(2)
+            col1.metric("Total users", user_count_db)
+            col2.metric("Active users", active_user_count_db)
+            st.write(f"Filename: {filename_db}")
+
         # normal preview
         preview_df = pl.DataFrame(
             rows,
@@ -138,6 +156,7 @@ if run_import:
 
     else:
         st.warning("No rows inserted.")
+
 
     if st.button("Reset session"):
         st.session_state.clear()

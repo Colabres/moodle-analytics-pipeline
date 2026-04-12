@@ -16,6 +16,15 @@ from src.db import (
     fetch_ingest_files
 )
 
+def ensure_ingest_file_schema(cur) -> None:
+    cur.execute("""
+        ALTER TABLE moodle.ingest_file
+        ADD COLUMN IF NOT EXISTS user_count INT;
+    """)
+    cur.execute("""
+        ALTER TABLE moodle.ingest_file
+        ADD COLUMN IF NOT EXISTS active_user_count INT;
+    """)
 
 def find_user_ids(df: pl.DataFrame, event_names: list[str]) -> list[int]:
     """
@@ -113,13 +122,16 @@ def transfer_to_db(df: pl.DataFrame,file_id: int ,filename: str) -> Tuple[int, i
             pl.lit(None).cast(pl.Int64).alias("user_id")
         )
 
+    user_count = df.select(pl.col("user_id").n_unique()).item()
+
     # 2.1️⃣ Compute admin ids (from this file)
     admin_event_names = EVENT_BUCKETS.get("Admin activity", [])
     admin_ids_detected = set(find_user_ids(df, admin_event_names))
 
     # 2.2️⃣ Compute active ids (from this file) 
-    active_event_names = EVENT_BUCKETS.get("Quizzes / Exams", []) #add bucket forums and discussions
+    active_event_names = (EVENT_BUCKETS.get("Quizzes / Exams", []) + EVENT_BUCKETS.get("Forums / Discussions", []))
     active_user_ids = set(find_user_ids(df, active_event_names))
+    active_user_count = len(active_user_ids)
 
     # 2.3️⃣ All user ids present in this file (non-null only)
     all_user_ids = (
@@ -152,8 +164,9 @@ def transfer_to_db(df: pl.DataFrame,file_id: int ,filename: str) -> Tuple[int, i
     with connect() as conn:
         with conn.cursor() as cur:
             # Create ingest_file row
-            file_id = insert_ingest_file(cur,file_id=file_id ,filename=filename)
-
+            ensure_ingest_file_schema(cur)
+            file_id = insert_ingest_file(cur,file_id=file_id ,filename=filename, user_count=user_count, active_user_count=active_user_count)
+            
             # Update moodle.user_dim (3 steps)
             if all_user_ids:
                 ensure_users(cur, all_user_ids)

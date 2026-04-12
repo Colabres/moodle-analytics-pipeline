@@ -12,14 +12,14 @@ def connect():
     return psycopg.connect(get_database_url())
 
 
-def insert_ingest_file(cur, file_id: int, filename: str) -> int:
+def insert_ingest_file(cur, file_id: int, filename: str, user_count: int, active_user_count: int) -> int:
     cur.execute(
         """
-        INSERT INTO moodle.ingest_file (file_id, filename)
-        VALUES (%s, %s)
+        INSERT INTO moodle.ingest_file (file_id, filename, user_count, active_user_count)
+        VALUES (%s, %s, %s, %s)
         RETURNING file_id
         """,
-        (file_id, filename),
+        (file_id, filename, user_count, active_user_count),
     )
     return cur.fetchone()[0]
 
