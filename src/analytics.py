@@ -561,6 +561,7 @@ def plot_daily_activity(
             end_date,
             file_ids=file_ids,
             events=event_names,
+            threshold=threshold,
             interval=interval
         )
 
@@ -699,6 +700,7 @@ def plot_hourly_activity(
             end_date,
             file_ids=file_ids,
             events=event_names,
+            threshold=threshold,
             interval=interval
         )
 
@@ -753,6 +755,7 @@ def plot_weekly_activity(
             end_date,
             file_ids=file_ids,
             events=event_names,
+            threshold=threshold,
             interval=interval
         )
 
@@ -807,8 +810,11 @@ def plot_component_distribution(
     if df.empty:
         st.info("No component data.")
         return df
+    
 
     df["percent"] = (df["n"] / df["n"].sum() * 100).round(1)
+
+    df = df[df["n"] >= threshold]
 
     chart_df = df.set_index("component")[["percent"]]
     st.bar_chart(chart_df, height=320, use_container_width=True)
@@ -839,6 +845,8 @@ def plot_top_events(
     if df.empty:
         st.info("No event data.")
         return df
+    
+    df = df[df["n"] >= threshold]
 
     chart_df = df.set_index("event_name")[["n"]]
     st.bar_chart(chart_df, height=320, use_container_width=True)
@@ -933,6 +941,7 @@ def plot_weekday_activity(
             end_date,
             file_ids=file_ids,
             events=event_names,
+            threshold=threshold,
             interval=interval
         )
 
@@ -985,9 +994,11 @@ WITH user AS
     SELECT user_id, COUNT(*) AS activity, MAX(ts) AS latest_act
     FROM moodle.event
     WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+        AND user_id IS NOT NULL
         AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
         AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
     GROUP BY user_id
+    HAVING COUNT(*) >= %(threshold)s
 ),
 
 statistics AS 
@@ -1012,6 +1023,7 @@ def plot_last_activity_scatter(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
+    threshold: int = 0,
     file_ids: list[int] | None = None,
     show_table: bool = True
 ) -> pd.DataFrame:
@@ -1032,6 +1044,7 @@ def plot_last_activity_scatter(
         "event_names": names,
         "use_file_scope": len(ids) > 0,
         "file_id": ids,
+        "threshold": threshold,
     }
 
     df = pd.read_sql_query(USER_LAST_ACTIVITY_INTENSITY_SQL, conn, params=params)
