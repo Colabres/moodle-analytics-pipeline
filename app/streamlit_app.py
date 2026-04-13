@@ -178,6 +178,9 @@ from src.analytics import (
     plot_weekday_activity,
     plot_component_distribution,
     plot_top_events,
+    plot_hours_spent_on_each_exam,
+    plot_number_of_submissions_per_context,
+    plot_portion_of_users_per_context,
 
 )
 
@@ -202,6 +205,9 @@ PLOT_TITLES = {
 ADDITIONAL_ANALYSIS_REGISTRY = {
     "submissions_first_vs_later_quartile": plot_number_of_submissions_in_first_and_later_quartiles_by_user_id,
     "exam_hours_first_vs_later_quartile": plot_hours_spent_on_one_or_more_exams_at_a_time,
+    "exam_hours_per_exam": plot_hours_spent_on_each_exam,
+    "submissions_per_context": plot_number_of_submissions_per_context,
+    "portion_of_users_per_context": plot_portion_of_users_per_context,
 }
 cfg = render_control_panel()
 standard = cfg["standard"]
@@ -254,9 +260,15 @@ if additional.get("run_clicked"):
                     continue
 
                 if analysis_id == "submissions_first_vs_later_quartile":
-                    st.subheader("Submissions: first vs later quartile")
+                    st.subheader("Average number of submissions per user in four quartiles over the selected duration (Note: users who made no submissions are not taken into account)")
                 elif analysis_id == "exam_hours_first_vs_later_quartile":
-                    st.subheader("Exam hours: first vs later quartile")
+                    st.subheader("Average total hours spent on at least one exam at a time per user in four quartiles over the selected duration (Note: users who spent no time on exams are not taken into account)")
+                elif analysis_id == "exam_hours_per_exam":
+                    st.subheader("Total hours spent by the average user on each exam (Note: users who spent no time on exams are not taken into account)")
+                elif analysis_id == "submissions_per_context":
+                    st.subheader("Number of submissions by the average user in each context (Note: users who made no submissions are not taken into account)")
+                elif analysis_id == "portion_of_users_per_context":
+                    st.subheader("Portion of all users who made at least one submission per context")
                 else:
                     st.subheader(analysis_id.replace("_", " ").title())
 

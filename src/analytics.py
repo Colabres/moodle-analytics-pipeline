@@ -202,8 +202,8 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
             averages.append(0) #add zero and move on to the next iteration
             continue
 
-        df_quartile["number_of_submissions"] = df_quartile["submissions_n"].astype(int) #extract numbers of submissions
-        averages.append(df_quartile["number_of_submissions"].mean()) #add average number of submissions
+        df_quartile["submissions_n"] = df_quartile["submissions_n"].astype(int) #extract numbers of submissions
+        averages.append((df_quartile["submissions_n"].sum())/(len(df_quartile.index))) #add average number of submissions
 
     bar_names = ["1st quartile", "2nd quartile", "3rd quartile", "4th quartile"] #setup the x axis for bar plot
     df = pd.DataFrame({"quartile": pd.Series(bar_names), "average number of submissions": pd.Series(averages)})
@@ -312,7 +312,7 @@ def plot_hours_spent_on_one_or_more_exams_at_a_time(
 
         df_quartile["ts"] = pd.to_datetime(df_quartile["ts"])
         total_times = compute_total_hours_spent_on_one_or_more_exams_at_a_time(df_quartile, "total hours") #perform computation
-        averages.append(total_times["total hours"].mean()) #add average hours spent
+        averages.append((total_times["total hours"].sum())/(len(total_times.index))) #add average hours spent
 
     bar_names = ["1st quartile", "2nd quartile", "3rd quartile", "4th quartile"] #setup the x axis for bar plot
     df = pd.DataFrame({"quartile": pd.Series(bar_names), "average hours spent on at least one exam at a time": pd.Series(averages)})
