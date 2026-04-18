@@ -826,8 +826,18 @@ def plot_component_distribution(
 
     df = df[df["n"] >= threshold]
 
-    chart_df = df.set_index("component")[["percent"]]
-    st.bar_chart(chart_df, height=320, use_container_width=True)
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("percent:Q", title="Percent"),
+            y=alt.Y("component:N", sort="-x", title="Component"),
+            tooltip=["component", "percent"]
+        )
+        .properties(height=320)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 
     return df
 
@@ -858,9 +868,18 @@ def plot_top_events(
     
     df = df[df["n"] >= threshold]
 
-    chart_df = df.set_index("event_name")[["n"]]
-    st.bar_chart(chart_df, height=320, use_container_width=True)
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("n:Q", title="Count"),
+            y=alt.Y("event_name:N", sort="-x", title="Event"),
+            tooltip=["event_name", "n"]
+        )
+        .properties(height=320)
+    )
 
+    st.altair_chart(chart, use_container_width=True)
     return df
 
 
