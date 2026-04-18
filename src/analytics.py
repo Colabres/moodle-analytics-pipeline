@@ -87,6 +87,16 @@ GROUP BY user_id
 ORDER BY user_id;
 """
 
+def adapt_dataframe_by_treshold(data: pl.DataFrame, treshold: int) -> pl.DataFrame:
+    #deletes logs that are created within "treshold" minutes of each other by the same user
+    treshold = str(treshold)+"m"
+    df = data.clone()
+    df = df.with_columns(pl.col("Aika").str.to_datetime(format="%d.%m.%Y, %H.%M.%S").alias("datetime"))
+    df = df.with_columns(pl.col("datetime").dt.round(treshold).alias("datetime_rounded"))
+    df = df.unique(subset=["Kayttaja_id", "datetime_rounded"], maintain_order=True)
+    df = df.drop(["datetime", "datetime_rounded"])
+    return df
+
 def compute_number_users_by_time_interval(
     conn,
     start_date: date,
