@@ -999,7 +999,7 @@ def plot_weekday_activity(
 
 
 USER_LAST_ACTIVITY_INTENSITY_SQL = """
-WITH user AS 
+WITH user_activity AS 
 (
     SELECT user_id, COUNT(*) AS activity, MAX(ts) AS latest_act
     FROM moodle.event
@@ -1014,14 +1014,14 @@ WITH user AS
 statistics AS 
 (
     SELECT AVG(activity) AS ma, VAR_POP(activity) as var
-    FROM user
+    FROM user_activity
 )
 
 SELECT 
-    user.user_id, 
-    user.latest_act, 
-    (user.activity::float - statistics.ma) / NULLIF(SQRT(statistics.var), 0) AS intensity
-FROM user
+    user_activity.user_id, 
+    user_activity.latest_act, 
+    (user_activity.activity::float - statistics.ma) / NULLIF(SQRT(statistics.var), 0) AS intensity
+FROM user_activity
 CROSS JOIN statistics
 """
 
