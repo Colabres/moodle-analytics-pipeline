@@ -181,6 +181,8 @@ from src.analytics import (
     plot_hours_spent_on_each_exam,
     plot_number_of_submissions_per_context,
     plot_portion_of_users_per_context,
+    plot_active_days_above_threshold,
+    plot_last_activity_scatter,
 
 )
 
@@ -193,6 +195,8 @@ PLOT_REGISTRY = {
     "weekday_activity": plot_weekday_activity,
     "component_distribution": plot_component_distribution,
     "top_event_types": plot_top_events,
+    "active_days_above_threshold": plot_active_days_above_threshold,
+    "last_activity_scatter": plot_last_activity_scatter,
 }
 PLOT_TITLES = {
     "daily_activity": "Daily activity (events per day)",
@@ -201,6 +205,8 @@ PLOT_TITLES = {
     "weekday_activity": "Weekday activity",
     "component_distribution": "Component distribution",
     "top_event_types": "Top event types",
+    "active_days_above_threshold": "Active days above threshold",
+    "last_activity_scatter": "Last activity scatter",
 }
 ADDITIONAL_ANALYSIS_REGISTRY = {
     "submissions_first_vs_later_quartile": plot_number_of_submissions_in_first_and_later_quartiles_by_user_id,
@@ -208,6 +214,7 @@ ADDITIONAL_ANALYSIS_REGISTRY = {
     "exam_hours_per_exam": plot_hours_spent_on_each_exam,
     "submissions_per_context": plot_number_of_submissions_per_context,
     "portion_of_users_per_context": plot_portion_of_users_per_context,
+    
 }
 cfg = render_control_panel()
 standard = cfg["standard"]

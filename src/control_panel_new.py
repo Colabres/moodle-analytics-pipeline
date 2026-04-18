@@ -17,12 +17,17 @@ PLOT_OPTIONS = [
     ("weekday_activity", "Weekday activity"),
     ("top_event_types", "Top event types"),
     ("component_distribution", "Component distribution"),
+    ("active_days_above_threshold", "Active days above threshold"),
+    ("last_activity_scatter", "Last activity scatter"),
 ]
 
 # Additional analyses (fixed analysis functions)
 ADDITIONAL_ANALYSIS_OPTIONS = [
     ("submissions_first_vs_later_quartile", "Submissions: first vs later quartile"),
     ("exam_hours_first_vs_later_quartile", "Exam hours: first vs later quartile"),
+    ("exam_hours_per_exam", "Exam hours per exam"),
+    ("submissions_per_context", "Submissions per context"),
+    ("portion_of_users_per_context", "Portion of users per context"),
 ]
 
 def load_csv(file) -> pl.DataFrame:
