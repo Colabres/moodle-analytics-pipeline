@@ -267,13 +267,13 @@ if additional.get("run_clicked"):
                     continue
 
                 if analysis_id == "submissions_first_vs_later_quartile":
-                    st.subheader("Average number of submissions per user in four quartiles over the selected duration (Note: users who made no submissions are not taken into account)")
+                    st.subheader("Average number of submissions per user in four quartiles over the selected duration")
                 elif analysis_id == "exam_hours_first_vs_later_quartile":
                     st.subheader("Average total hours spent on at least one exam at a time per user in four quartiles over the selected duration (Note: users who spent no time on exams are not taken into account)")
                 elif analysis_id == "exam_hours_per_exam":
                     st.subheader("Total hours spent by the average user on each exam (Note: users who spent no time on exams are not taken into account)")
                 elif analysis_id == "submissions_per_context":
-                    st.subheader("Number of submissions by the average user in each context (Note: users who made no submissions are not taken into account)")
+                    st.subheader("Number of submissions by the average user in each context")
                 elif analysis_id == "portion_of_users_per_context":
                     st.subheader("Portion of all users who made at least one submission per context")
                 else:
