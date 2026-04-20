@@ -1096,7 +1096,7 @@ def plot_last_activity_scatter(
     df["y"] = np.random.uniform(-0.05, 0.05, len(df))
 
     chart = alt.Chart(df).mark_circle(size=60).encode(
-        x=alt.X("latest_act:T", title="Time (last activity)"),
+        x=alt.X("latest_act:T", title="Date (last activity)",axis=alt.Axis(format="%d.%m", labelAngle=0)),
         y=alt.Y("y:Q", axis=None),  
         color=alt.Color(
             "intensity:Q",
