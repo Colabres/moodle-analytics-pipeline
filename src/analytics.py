@@ -87,15 +87,37 @@ GROUP BY user_id
 ORDER BY user_id;
 """
 
-def adapt_dataframe_by_treshold(data: pl.DataFrame, treshold: int) -> pl.DataFrame:
-    #deletes logs that are created within "treshold" minutes of each other by the same user
-    treshold = str(treshold)+"m"
-    df = data.clone()
-    df = df.with_columns(pl.col("Aika").str.to_datetime(format="%d.%m.%Y, %H.%M.%S").alias("datetime"))
-    df = df.with_columns(pl.col("datetime").dt.round(treshold).alias("datetime_rounded"))
-    df = df.unique(subset=["Kayttaja_id", "datetime_rounded"], maintain_order=True)
-    df = df.drop(["datetime", "datetime_rounded"])
+# def adapt_dataframe_by_treshold(data: pl.DataFrame, treshold: int) -> pl.DataFrame:
+#     #deletes logs that are created within "treshold" minutes of each other by the same user
+#     treshold = str(treshold)+"m"
+#     df = data.clone()
+#     df = df.with_columns(pl.col("Aika").str.to_datetime(format="%d.%m.%Y, %H.%M.%S").alias("datetime"))
+#     df = df.with_columns(pl.col("datetime").dt.round(treshold).alias("datetime_rounded"))
+#     df = df.unique(subset=["Kayttaja_id", "datetime_rounded"], maintain_order=True)
+#     df = df.drop(["datetime", "datetime_rounded"])
+#     return df
+
+
+def adapt_dataframe_by_treshold(df: pd.DataFrame, threshold: int) -> pd.DataFrame:
+    if threshold <= 0:
+        return df
+
+    df = df.copy()
+
+    # ensure datetime
+    df["ts"] = pd.to_datetime(df["ts"])
+
+    # round
+    freq = f"{threshold}min"
+    df["ts_rounded"] = df["ts"].dt.round(freq)
+
+    # drop duplicates per user + rounded time
+    df = df.drop_duplicates(subset=["user_id", "ts_rounded"], keep="first")
+
+    df = df.drop(columns=["ts_rounded"])
+
     return df
+
 
 def compute_number_users_by_time_interval(
     conn,
@@ -555,87 +577,16 @@ def _date_to_ts_range(start_date: date, end_date: date) -> tuple[datetime, datet
     return start_ts, end_ts
 
 
-def plot_daily_activity(
-    conn,
-    start_date: date,
-    end_date: date,
-    event_names: Sequence[str] | None,
-    *,
-    threshold: int = 0,    
-    file_ids: list[int] | None = None,
-    show_table: bool = True,
-    by_interval: bool = False,
-    interval: int = 60 * 24 
-) -> pd.DataFrame:
-    if start_date > end_date:
-        st.error("Invalid date range: start_date > end_date")
-        return pd.DataFrame(columns=["day", "n"])
-    
-    if by_interval:
-        df = compute_number_users_by_time_interval(
-            conn,
-            start_date,
-            end_date,
-            file_ids=file_ids,
-            events=event_names,
-            threshold=threshold,
-            interval=interval
-        )
-
-        if df is None or df.empty:
-            st.info("Daily activity: no data.")
-            return pd.DataFrame()
-        
-        df_plot = df.set_index("x")[["number_of_users"]]
-        st.bar_chart(df_plot, height=320, use_container_width=True)
-
-        if show_table:
-            with st.expander("Show aggregated counts", expanded=False):
-                st.dataframe(df_plot, use_container_width=True)
-
-        return df_plot
-
-    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
-
-    names = list(event_names) if event_names else []
-    ids = list(file_ids) if file_ids else []
-    params = {
-        "start_ts": start_ts,
-        "end_ts": end_ts,
-        "use_event_filter": len(names) > 0,
-        "event_names": names,
-        "use_file_scope": len(ids) > 0,
-        "file_ids": ids,
-    }
-
-    df = pd.read_sql_query(DAILY_ACTIVITY_SQL, conn, params=params)
-
-    if df.empty:
-        st.info("Daily activity: no events for selected filters.")
-        if show_table:
-            with st.expander("Show aggregated daily counts", expanded=False):
-                st.dataframe(df, use_container_width=True)
-        return df
-
-    # Types + format for Streamlit chart
-    df = df.copy()
-
-    #df = adapt_dataframe_by_treshold(df,threshold)
-
-    df["day"] = pd.to_datetime(df["day"]).dt.date
-    df["n"] = df["n"].astype(int)
-
-    chart_df = df.set_index("day")[["n"]]
-    st.bar_chart(chart_df, height=320, use_container_width=True)
-
-    if show_table:
-        with st.expander("Show aggregated daily counts", expanded=False):
-            st.dataframe(df, use_container_width=True)
-
-    return df
 
 
-
+BASE_EVENTS_SQL = """
+SELECT ts, user_id, event_name, component, context, file_id
+FROM moodle.event
+WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
+  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
+  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
+ORDER BY ts;
+"""
 
 HOURLY_ACTIVITY_SQL = """
 SELECT EXTRACT(hour FROM ts) AS hour, COUNT(*) AS n
@@ -699,6 +650,81 @@ def _build_params(start_ts, end_ts, event_names, ids):
         "use_file_scope": len(ids) > 0,
         "file_ids": ids,
     }
+
+
+def plot_daily_activity(
+    conn,
+    start_date: date,
+    end_date: date,
+    event_names: Sequence[str] | None,
+    *,
+    threshold: int = 0,    
+    file_ids: list[int] | None = None,
+    show_table: bool = True,
+    by_interval: bool = False,
+    interval: int = 60 * 24 
+) -> pd.DataFrame:
+    if start_date > end_date:
+        st.error("Invalid date range: start_date > end_date")
+        return pd.DataFrame(columns=["day", "n"])
+    
+    start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+
+    names = list(event_names) if event_names else []
+    ids = list(file_ids) if file_ids else []
+    params = {
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_event_filter": len(names) > 0,
+        "event_names": names,
+        "use_file_scope": len(ids) > 0,
+        "file_ids": ids,
+    }
+
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
+
+    if df.empty:
+        st.info("Daily activity: no events for selected filters.")
+        if show_table:
+            with st.expander("Show aggregated daily counts", expanded=False):
+                st.dataframe(df, use_container_width=True)
+        return df
+    
+   
+    df = adapt_dataframe_by_treshold(df, threshold)
+    
+
+    df["ts"] = pd.to_datetime(df["ts"])
+    df["day"] = df["ts"].dt.date
+
+    
+
+    df = (
+        df.groupby("day")
+        .size()
+        .reset_index(name="n")
+        .sort_values("day")
+    )
+
+
+    # Types + format for Streamlit chart
+    df = df.copy()
+
+    
+
+    df["day"] = pd.to_datetime(df["day"]).dt.date
+    df["n"] = df["n"].astype(int)
+
+    chart_df = df.set_index("day")[["n"]]
+    st.bar_chart(chart_df, height=320, use_container_width=True)
+
+    if show_table:
+        with st.expander("Show aggregated daily counts", expanded=False):
+            st.dataframe(df, use_container_width=True)
+
+    return df
+
+
 
 
 def plot_hourly_activity(
