@@ -283,6 +283,6 @@ if additional.get("run_clicked"):
                     conn,
                     standard["start_date"],
                     standard["end_date"],
-                    file_id=None,
+                    file_id=standard["course_ids"],
                     show_table=True,
                 )

@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 import numpy as np
-
+import polars as pl
 
 DAILY_ACTIVITY_SQL = """
 SELECT date_trunc('day', ts) AS day, COUNT(*) AS n
@@ -612,6 +612,9 @@ def plot_daily_activity(
 
     # Types + format for Streamlit chart
     df = df.copy()
+
+    #df = adapt_dataframe_by_treshold(df,threshold)
+
     df["day"] = pd.to_datetime(df["day"]).dt.date
     df["n"] = df["n"].astype(int)
 
