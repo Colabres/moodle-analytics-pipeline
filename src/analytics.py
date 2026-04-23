@@ -182,19 +182,16 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
     names = ["Tenttivastaus palautettu", "Palautus on lähetetty"] #we are only interested in submissions, be they exam or exercise submissions
     ids = list(file_id) if file_id else [] #check which file_ids to include in the query
 
-    if by_interval: #if we want to split the duration into x min intervals, we ignore the quartile partition done earlier
-        df = compute_number_users_by_time_interval(conn, start_date, end_date, file_ids=ids, events=names, threshold=threshold, interval=interval)
-        if df == None: #no data
-            st.info("No data.")
-            return pd.DataFrame(columns=["user_id", "n"])
-        
-        df_plot = df.set_index("x")[["number_of_users"]]
-        st.bar_chart(df_plot, height=320, use_container_width=True) #plot a bar chart
-
-        if show_table:
-            with st.expander("Show aggregated counts", expanded=False):
-                st.dataframe(df_plot, use_container_width=True)
-        return df_plot
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    } #prepare query parameters
+    df = pd.read_sql_query(NUMBER_OF_UNIQUE_USERS_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    n = len(df.index) #total number of all users in the interval
 
     averages = []
     for i in [(start_ts, split_ts1), (split_ts1, split_ts2), (split_ts2, split_ts3), (split_ts3, end_ts)]:
@@ -213,7 +210,7 @@ def plot_number_of_submissions_in_first_and_later_quartiles_by_user_id(
             continue
 
         df_quartile["submissions_n"] = df_quartile["submissions_n"].astype(int) #extract numbers of submissions
-        averages.append((df_quartile["submissions_n"].sum())/(len(df_quartile.index))) #add average number of submissions
+        averages.append((df_quartile["submissions_n"].sum())/n) #add average number of submissions
 
     bar_names = ["1st quartile", "2nd quartile", "3rd quartile", "4th quartile"] #setup the x axis for bar plot
     df = pd.DataFrame({"quartile": pd.Series(bar_names), "average number of submissions": pd.Series(averages)})
@@ -462,6 +459,17 @@ def plot_number_of_submissions_per_context(
     params = {       
         "start_ts": start_ts,
         "end_ts": end_ts,
+        "use_file_scope": len(ids) > 0,
+        "file_id": ids,
+    } #prepare query parameters
+    df = pd.read_sql_query(NUMBER_OF_UNIQUE_USERS_SQL, conn, params=params) #execute query
+    if len(df.index) <= 0: #no data
+        return None
+    n = len(df.index) #total number of all users in the interval
+
+    params = {       
+        "start_ts": start_ts,
+        "end_ts": end_ts,
         "use_event_filter": len(names) > 0,
         "event_names": names,
         "use_file_scope": len(ids) > 0,
@@ -473,8 +481,7 @@ def plot_number_of_submissions_per_context(
     
     df["submissions_n"] = df["submissions_n"].astype(int)
     df["users_n"] = df["users_n"].astype(int)
-    df = df[df["users_n"] > 0] #to avoid dividing by zero
-    df["average number of submissions per user"] = df["submissions_n"]/df["users_n"]
+    df["average number of submissions per user"] = df["submissions_n"]/n
 
     df_plot = df.drop(columns=["users_n", "submissions_n"])
     df_plot = df_plot.set_index("context")[["average number of submissions per user"]]
@@ -1092,7 +1099,7 @@ def plot_last_activity_scatter(
     df["y"] = np.random.uniform(-0.05, 0.05, len(df))
 
     chart = alt.Chart(df).mark_circle(size=60).encode(
-        x=alt.X("latest_act:T", title="Time (last activity)"),
+        x=alt.X("latest_act:T", title="Date (last activity)",axis=alt.Axis(format="%d.%m", labelAngle=0)),
         y=alt.Y("y:Q", axis=None),  
         color=alt.Color(
             "intensity:Q",
