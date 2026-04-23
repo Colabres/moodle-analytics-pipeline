@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 import altair as alt
 import numpy as np
-import polars as pl
+
 
 DAILY_ACTIVITY_SQL = """
 SELECT date_trunc('day', ts) AS day, COUNT(*) AS n
@@ -87,33 +87,18 @@ GROUP BY user_id
 ORDER BY user_id;
 """
 
-# def adapt_dataframe_by_treshold(data: pl.DataFrame, treshold: int) -> pl.DataFrame:
-#     #deletes logs that are created within "treshold" minutes of each other by the same user
-#     treshold = str(treshold)+"m"
-#     df = data.clone()
-#     df = df.with_columns(pl.col("Aika").str.to_datetime(format="%d.%m.%Y, %H.%M.%S").alias("datetime"))
-#     df = df.with_columns(pl.col("datetime").dt.round(treshold).alias("datetime_rounded"))
-#     df = df.unique(subset=["Kayttaja_id", "datetime_rounded"], maintain_order=True)
-#     df = df.drop(["datetime", "datetime_rounded"])
-#     return df
+
 
 
 def adapt_dataframe_by_treshold(df: pd.DataFrame, threshold: int) -> pd.DataFrame:
     if threshold <= 0:
         return df
 
-    df = df.copy()
-
-    # ensure datetime
-    df["ts"] = pd.to_datetime(df["ts"])
-
-    # round
+    df = df.copy()    
+    df["ts"] = pd.to_datetime(df["ts"])    
     freq = f"{threshold}min"
-    df["ts_rounded"] = df["ts"].dt.round(freq)
-
-    # drop duplicates per user + rounded time
+    df["ts_rounded"] = df["ts"].dt.round(freq)    
     df = df.drop_duplicates(subset=["user_id", "ts_rounded"], keep="first")
-
     df = df.drop(columns=["ts_rounded"])
 
     return df
@@ -588,50 +573,6 @@ WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
 ORDER BY ts;
 """
 
-HOURLY_ACTIVITY_SQL = """
-SELECT EXTRACT(hour FROM ts) AS hour, COUNT(*) AS n
-FROM moodle.event
-WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
-  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
-GROUP BY hour
-ORDER BY hour;
-"""
-
-
-WEEKLY_ACTIVITY_SQL = """
-SELECT EXTRACT(week FROM ts) AS week, COUNT(*) AS n
-FROM moodle.event
-WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
-  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
-GROUP BY week
-ORDER BY week;
-"""
-
-
-COMPONENT_DIST_SQL = """
-SELECT component, COUNT(*) AS n
-FROM moodle.event
-WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
-  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
-GROUP BY component
-ORDER BY n DESC;
-"""
-
-
-TOP_EVENTS_SQL = """
-SELECT event_name, COUNT(*) AS n
-FROM moodle.event
-WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
-  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
-GROUP BY event_name
-ORDER BY n DESC
-LIMIT %(top_n)s;
-"""
-
 
 def _date_to_ts_range(start_date: date, end_date: date):
     start_ts = datetime.combine(start_date, datetime.min.time())
@@ -739,39 +680,29 @@ def plot_hourly_activity(
     by_interval: bool = False,
     interval: int = 60
 ) -> pd.DataFrame:
-    if by_interval:
-        df = compute_number_users_by_time_interval(
-            conn,
-            start_date,
-            end_date,
-            file_ids=file_ids,
-            events=event_names,
-            threshold=threshold,
-            interval=interval
-        )
-
-        if df is None or df.empty:
-            st.info("No hourly activity data.")
-            return pd.DataFrame()
-
-        df_plot = df.set_index("x")[["number_of_users"]]
-        st.bar_chart(df_plot, height=320, use_container_width=True)
-
-        if show_table:
-            with st.expander("Show aggregated counts", expanded=False):
-                st.dataframe(df_plot, use_container_width=True)
-
-        return df_plot
 
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
     params = _build_params(start_ts, end_ts, event_names, file_ids)
 
-    df = pd.read_sql_query(HOURLY_ACTIVITY_SQL, conn, params=params)
+    
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
 
     if df.empty:
         st.info("No hourly activity data.")
         return df
+    
+    df = adapt_dataframe_by_treshold(df, threshold)
+
+    df["ts"] = pd.to_datetime(df["ts"])
+    df["hour"] = df["ts"].dt.hour
+    
+    df = (
+        df.groupby("hour")
+          .size()
+          .reset_index(name="n")
+          .sort_values("hour")
+    )
 
     df["hour"] = df["hour"].astype(int)
     df["n"] = df["n"].astype(int)
@@ -794,38 +725,29 @@ def plot_weekly_activity(
     by_interval: bool = False,
     interval: int = 60 * 24 * 7
 ) -> pd.DataFrame:
-    if by_interval:
-        df = compute_number_users_by_time_interval(
-            conn,
-            start_date,
-            end_date,
-            file_ids=file_ids,
-            events=event_names,
-            threshold=threshold,
-            interval=interval
-        )
-
-        if df is None or df.empty:
-            st.info("No weekly activity data.")
-            return pd.DataFrame()
-        
-        df_plot = df.set_index("x")[["number_of_users"]]
-        st.line_chart(df_plot, height=320, use_container_width=True)
-
-        if show_table:
-            with st.expander("Show aggregated counts", expanded=False):
-                st.dataframe(df_plot, use_container_width=True)
-
-        return df_plot
+    
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
     params = _build_params(start_ts, end_ts, event_names, file_ids)
 
-    df = pd.read_sql_query(WEEKLY_ACTIVITY_SQL, conn, params=params)
+    
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
 
     if df.empty:
         st.info("No weekly activity data.")
         return df
+    
+    df = adapt_dataframe_by_treshold(df, threshold)
+
+    df["ts"] = pd.to_datetime(df["ts"])
+    df["week"] = df["ts"].dt.isocalendar().week
+
+    df = (
+        df.groupby("week")
+          .size()
+          .reset_index(name="n")
+          .sort_values("week")
+    )
 
     df["week"] = df["week"].astype(int)
     df["n"] = df["n"].astype(int)
@@ -851,16 +773,25 @@ def plot_component_distribution(
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
     params = _build_params(start_ts, end_ts, event_names, file_ids)
 
-    df = pd.read_sql_query(COMPONENT_DIST_SQL, conn, params=params)
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
 
     if df.empty:
         st.info("No component data.")
         return df
     
+    df = adapt_dataframe_by_treshold(df, threshold)
+
+    
+    df = (
+        df.groupby("component")
+          .size()
+          .reset_index(name="n")
+          .sort_values("n", ascending=False)
+    )
 
     df["percent"] = (df["n"] / df["n"].sum() * 100).round(1)
 
-    df = df[df["n"] >= threshold]
+    
 
     chart = (
         alt.Chart(df)
@@ -896,13 +827,23 @@ def plot_top_events(
     params = _build_params(start_ts, end_ts, event_names, file_ids)
     params["top_n"] = top_n
 
-    df = pd.read_sql_query(TOP_EVENTS_SQL, conn, params=params)
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
 
     if df.empty:
         st.info("No event data.")
         return df
     
-    df = df[df["n"] >= threshold]
+    df = adapt_dataframe_by_treshold(df, threshold)
+
+    
+    df = (
+        df.groupby("event_name")
+          .size()
+          .reset_index(name="n")
+          .sort_values("n", ascending=False)
+    )
+    
+    
 
     chart = (
         alt.Chart(df)
@@ -925,7 +866,8 @@ def plot_active_days_above_threshold(
     end_date: date,
     event_names: Sequence[str] | None = None,
     *,
-    threshold: int = 0,  
+    threshold: int = 0,
+    cutoff_percent: float = 20.0,
     by_interval: bool = False,
     file_ids: list[int] | None = None,
     show_table: bool = True
@@ -936,55 +878,64 @@ def plot_active_days_above_threshold(
         return pd.DataFrame(columns=["day", "n"])
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
+    params = _build_params(start_ts, end_ts, event_names, file_ids)
 
-    names = list(event_names) if event_names else []
-    ids = list(file_ids) if file_ids else []
-
-    params = {
-        "start_ts": start_ts,
-        "end_ts": end_ts,
-        "use_event_filter": len(names) > 0,
-        "event_names": names,
-        "use_file_scope": len(ids) > 0,
-        "file_ids": ids,
-    }
-
-    df = pd.read_sql_query(DAILY_ACTIVITY_SQL, conn, params=params)
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
 
     if df.empty:
         st.info("No activity data.")
-        return df
+        return pd.DataFrame(columns=["day", "n"])
 
-    df = df.copy()
-    df["day"] = pd.to_datetime(df["day"]).dt.date
+    df = adapt_dataframe_by_treshold(df, threshold)
+
+    df["ts"] = pd.to_datetime(df["ts"])
+    df["day"] = df["ts"].dt.date
+
+    df = (
+        df.groupby("day")
+          .size()
+          .reset_index(name="n")
+          .sort_values("day")
+    )
+
     df["n"] = df["n"].astype(int)
 
-    df_filtered = df[df["n"] > threshold]
+    max_n = df["n"].max()
+    cutoff = max_n * (cutoff_percent / 100.0)
+
+    df_filtered = df[df["n"] >= cutoff].copy()
 
     if df_filtered.empty:
-        st.info(f"No days exceed threshold ({threshold}).")
-        return df_filtered
+        st.info(f"No days reach {cutoff_percent}% of the maximum daily activity.")
+        return df_filtered  
+    
 
-    chart_df = df_filtered.set_index("day")[["n"]]
+    df_filtered["day_str"] = pd.to_datetime(df_filtered["day"]).dt.strftime("%d.%m")
+    day_order = df_filtered.sort_values("day")["day_str"].tolist()
 
-    st.bar_chart(chart_df, height=320, use_container_width=True)
+    chart = (
+        alt.Chart(df_filtered)
+        .mark_bar()
+        .encode(
+            x=alt.X(
+                "day_str:N",
+                title="Day",
+                sort=day_order,
+                axis=alt.Axis(labelAngle=-45)
+            ),
+            y=alt.Y("n:Q", title="Events"),
+            tooltip=["day_str", "n"]
+        )
+        .properties(height=320)
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 
     if show_table:
         with st.expander("Show filtered days", expanded=False):
             st.dataframe(df_filtered, use_container_width=True)
 
     return df_filtered
-
-
-WEEKDAY_ACTIVITY_SQL = """
-SELECT EXTRACT(DOW FROM ts) AS weekday, COUNT(*) AS n
-FROM moodle.event
-WHERE ts >= %(start_ts)s AND ts < %(end_ts)s
-  AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
-  AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_ids)s) )
-GROUP BY weekday
-ORDER BY weekday;
-"""
 
 def plot_weekday_activity(
     conn,
@@ -997,49 +948,29 @@ def plot_weekday_activity(
     show_table: bool = True,
     by_interval: bool = False,
     interval: int = 60 * 24   
-) -> pd.DataFrame:
-
-    if by_interval:
-        df = compute_number_users_by_time_interval(
-            conn,
-            start_date,
-            end_date,
-            file_ids=file_ids,
-            events=event_names,
-            threshold=threshold,
-            interval=interval
-        )
-
-        if df is None or df.empty:
-            st.info("No weekday activity data.")
-            return pd.DataFrame()
-
-        df = df.copy()
-        df["weekday"] = [i % 7 for i in df["x"]]
-
-        df_grouped = df.groupby("weekday")["number_of_users"].mean().reset_index()
-
-        weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        df_grouped["weekday_name"] = df_grouped["weekday"].astype(int).map(lambda x: weekday_names[x])
-
-        chart_df = df_grouped.set_index("weekday_name")[["number_of_users"]]
-        st.bar_chart(chart_df, height=320, use_container_width=True)
-
-        if show_table:
-            with st.expander("Show aggregated counts", expanded=False):
-                st.dataframe(df_grouped, use_container_width=True)
-
-        return df_grouped
+) -> pd.DataFrame:    
 
     start_ts, end_ts = _date_to_ts_range(start_date, end_date)
     params = _build_params(start_ts, end_ts, event_names, file_ids)
 
-    df = pd.read_sql_query(WEEKDAY_ACTIVITY_SQL, conn, params=params)
+    df = pd.read_sql_query(BASE_EVENTS_SQL, conn, params=params)
 
     if df.empty:
         st.info("No weekday activity data.")
         return df
+    
+    df = adapt_dataframe_by_treshold(df, threshold)
 
+    
+    df["ts"] = pd.to_datetime(df["ts"])
+    df["weekday"] = df["ts"].dt.dayofweek  # 0=Mon ... 6=Sun
+    
+    df = (
+        df.groupby("weekday")
+          .size()
+          .reset_index(name="n")
+          .sort_values("weekday")
+    )
     df["weekday"] = df["weekday"].astype(int)
     df["n"] = df["n"].astype(int)
 
