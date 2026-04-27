@@ -15,7 +15,7 @@ from src.control_panel_new import render_control_panel
 from src.event_buckets import EVENT_BUCKETS
 
 st.set_page_config(page_title="Moodle Log Explorer", layout="wide")
-st.title("Moodle Log Explorer")
+st.title("AIMO")
 
 
 

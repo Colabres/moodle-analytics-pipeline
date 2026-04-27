@@ -994,7 +994,7 @@ WITH user_activity AS
         AND ( %(use_event_filter)s = FALSE OR event_name = ANY(%(event_names)s) )
         AND ( %(use_file_scope)s = FALSE OR file_id = ANY(%(file_id)s ) )
     GROUP BY user_id
-    HAVING COUNT(*) >= %(threshold)s
+    
 ),
 
 statistics AS 
@@ -1063,7 +1063,7 @@ def plot_last_activity_scatter(
             scale=alt.Scale(scheme="viridis"),
             title="Activity intensity"
         ),
-        tooltip=["user_id", "latest_act", "intensity"]
+        tooltip=["latest_act", "intensity"]
     ).properties(
         height=200
     ).interactive()
