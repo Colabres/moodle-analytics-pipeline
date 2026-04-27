@@ -287,26 +287,26 @@ def render_control_panel() -> dict:
             st.warning("Fix the date range first.")
         elif not standard_config["plots"]:
             st.warning("Select at least one plot to run.")
-        else:
-            st.info("UI-only mode: these plots would run (no DB yet).")
-            st.write(
-                {
-                    "time_window": f"{standard_config['start_date']} .. {standard_config['end_date']}",
-                    "event_buckets": standard_config["buckets"] if standard_config["buckets"] else "(ALL later)",
-                    "plots": standard_config["plots"],
-                }
-            )
+        # else:
+        #     st.info("UI-only mode: these plots would run (no DB yet).")
+        #     st.write(
+        #         {
+        #             "time_window": f"{standard_config['start_date']} .. {standard_config['end_date']}",
+        #             "event_buckets": standard_config["buckets"] if standard_config["buckets"] else "(ALL later)",
+        #             "plots": standard_config["plots"],
+        #         }
+        #     )
 
     # UI-only feedback for additional analyses
     if additional_config["run_clicked"]:
         if not additional_config["selected"]:
             st.warning("Select at least one additional analysis to run.")
-        else:
-            st.info("UI-only mode: these additional analyses would run later.")
-            st.write(
-                {
-                    "additional_analyses": additional_config["selected"],
-                }
-            )
+        # else:
+        #     st.info("UI-only mode: these additional analyses would run later.")
+        #     st.write(
+        #         {
+        #             "additional_analyses": additional_config["selected"],
+        #         }
+        #     )
 
     return config
