@@ -963,7 +963,7 @@ def plot_weekday_activity(
 
     
     df["ts"] = pd.to_datetime(df["ts"])
-    df["weekday"] = df["ts"].dt.dayofweek  # 0=Mon ... 6=Sun
+    df["weekday"] = df["ts"].dt.dayofweek  
     
     df = (
         df.groupby("weekday")
@@ -971,14 +971,17 @@ def plot_weekday_activity(
           .reset_index(name="n")
           .sort_values("weekday")
     )
-    df["weekday"] = df["weekday"].astype(int)
-    df["n"] = df["n"].astype(int)
-
-    weekday_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
     df["weekday_name"] = df["weekday"].map(lambda x: weekday_names[x])
 
     chart_df = df.set_index("weekday_name")[["n"]]
+    chart_df = chart_df.reindex(weekday_names)
     st.bar_chart(chart_df, height=320, use_container_width=True)
+
+    if show_table:
+        with st.expander("Show weekday data", expanded=False):
+            st.dataframe(chart_df, use_container_width=True)
 
     return df
 
