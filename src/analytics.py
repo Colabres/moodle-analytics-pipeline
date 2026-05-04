@@ -965,19 +965,28 @@ def plot_weekday_activity(
         df.groupby("weekday")
           .size()
           .reset_index(name="n")
-          .sort_values("weekday")
     )
     weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     
     df["weekday_name"] = df["weekday"].map(lambda x: weekday_names[x])
 
-    chart_df = df.set_index("weekday_name")[["n"]]
-    chart_df = chart_df.reindex(weekday_names)
-    st.bar_chart(chart_df, height=320, use_container_width=True)
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X(
+            "weekday_name:N",
+            sort=weekday_names,  
+            title="Weekday"
+        ),
+        y=alt.Y("n:Q", title="Number of events"),
+        tooltip=["weekday_name", "n"]
+    ).properties(
+        height=320
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 
     if show_table:
         with st.expander("Show weekday data", expanded=False):
-            st.dataframe(chart_df, use_container_width=True)
+            st.dataframe(df, use_container_width=True)
 
     return df
 
