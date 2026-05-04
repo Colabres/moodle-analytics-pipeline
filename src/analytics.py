@@ -792,15 +792,23 @@ def plot_component_distribution(
     
 
     chart = (
-        alt.Chart(df)
-        .mark_bar()
-        .encode(
-            x=alt.X("percent:Q", title="Percent"),
-            y=alt.Y("component:N", sort="-x", title="Component"),
-            tooltip=["component", "percent"]
-        )
-        .properties(height=320)
+    alt.Chart(df)
+    .mark_bar()
+    .encode(
+        x=alt.X("percent:Q", title="Percent"),
+        y=alt.Y(
+            "component:N",
+            sort="-x",
+            title="Component",
+            axis=alt.Axis(
+                labelLimit=1000,
+                labelOverlap=False
+            )
+        ),
+        tooltip=["component", "percent"]
     )
+    .properties(height=400)
+)
 
     st.altair_chart(chart, use_container_width=True)
 
@@ -1080,6 +1088,7 @@ def plot_last_activity_scatter(
 
     if show_table:
         with st.expander("Show user data", expanded=False):
-            st.dataframe(df, use_container_width=True)
+            df_display = df.drop(columns=["user_id"], errors="ignore")
+            st.dataframe(df_display, use_container_width=True)
 
     return df
