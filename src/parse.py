@@ -14,7 +14,7 @@ def extract_user_id_pl(expr: pl.Expr) -> pl.Expr:
         rf"(?i)"
         rf"(?:^|[^0-9A-Za-z])(?:{labels_alt})"
         rf"\s*[:= -]?\s*"
-        rf"'?\s*([0-9]+)\s*'?"
+        rf"'?\s*(([+-]?[0-9]+))\s*'?"
         rf"(?:$|[^0-9])"
     )
 
