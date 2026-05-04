@@ -23,8 +23,8 @@ PLOT_OPTIONS = [
 
 # Additional analyses (fixed analysis functions)
 ADDITIONAL_ANALYSIS_OPTIONS = [
-    ("submissions_first_vs_later_quartile", "Submissions: first vs later quartile"),
-    ("exam_hours_first_vs_later_quartile", "Exam hours: first vs later quartile"),
+    ("submissions_first_vs_later_quartile", "Submissions by quartiles"),
+    ("exam_hours_first_vs_later_quartile", "Exam hours by quartiles"),
     ("exam_hours_per_exam", "Exam hours per exam"),
     ("submissions_per_context", "Submissions per context"),
     ("portion_of_users_per_context", "Portion of users per context"),
@@ -202,7 +202,7 @@ def _render_additional_analysis_controls() -> dict:
     }
 
 def _render_zombie_remover_controls() -> dict:
-    st.markdown("### Zombie Remover")
+    st.markdown("### Zombie Detector")
 
     advanced_mode = st.checkbox("Advanced training", key="zr_advanced")
 
