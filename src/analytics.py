@@ -778,8 +778,6 @@ def plot_component_distribution(
     if df.empty:
         st.info("No component data.")
         return df
-    
-    df = adapt_dataframe_by_treshold(df, threshold)
 
     
     df = (
@@ -832,8 +830,6 @@ def plot_top_events(
     if df.empty:
         st.info("No event data.")
         return df
-    
-    df = adapt_dataframe_by_treshold(df, threshold)
 
     
     df = (
