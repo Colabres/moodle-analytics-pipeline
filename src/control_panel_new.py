@@ -3,7 +3,8 @@ import polars as pl
 import io
 from datetime import date, timedelta
 from src.event_buckets import EVENT_BUCKETS
-from src.ingest import get_ingest_files
+from src.ingest import get_ingest_files,delete_ingest_files
+from src.db import connect
 from zombie_remover.data_verifying_functions import good_for_training, good_for_predictions 
 from zombie_remover.fast_training import train_fast
 from zombie_remover.predictions_runtime import predict_zombies, show_zombie_percent, output_file_complier
@@ -102,6 +103,15 @@ def _render_standard_controls() -> dict:
         )
 
         selected_course_ids = [label_to_id[label] for label in selected_course_labels]
+        if selected_course_ids:
+            if st.button("Delete selected courses", type="secondary", key="cp_delete_courses"):
+                with connect() as conn:
+                    with conn.cursor() as cur:
+                        delete_ingest_files(cur, selected_course_ids)
+                    conn.commit()
+
+                st.success(f"Deleted {len(selected_course_ids)} course(s).")
+                st.rerun()
 
         st.caption(f"{len(course_items)} matching courses.")
 

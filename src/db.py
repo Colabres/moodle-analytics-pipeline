@@ -144,3 +144,20 @@ def fetch_ingest_files(cur, search: str | None = None) -> list[tuple[int, str]]:
         for r in cur.fetchall()
         if r[0] is not None and r[1] is not None
     ]
+
+# def delete_ingest_files(cur, file_ids: list[int]) -> None:
+#     cur.execute(
+#         """
+#         DELETE FROM moodle.event
+#         WHERE file_id = ANY(%s);
+#         """,
+#         (file_ids,)
+#     )
+
+#     cur.execute(
+#         """
+#         DELETE FROM moodle.ingest_file
+#         WHERE file_id = ANY(%s);
+#         """,
+#         (file_ids,)
+#     )

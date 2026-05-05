@@ -13,8 +13,26 @@ from src.db import (
     set_users_active,
     set_users_admin,
     fetch_all_file_ids,
-    fetch_ingest_files
+    fetch_ingest_files,
+    
 )
+
+def delete_ingest_files(cur, file_ids: list[int]) -> None:
+    cur.execute(
+        """
+        DELETE FROM moodle.event
+        WHERE file_id = ANY(%s);
+        """,
+        (file_ids,)
+    )
+
+    cur.execute(
+        """
+        DELETE FROM moodle.ingest_file
+        WHERE file_id = ANY(%s);
+        """,
+        (file_ids,)
+    )
 
 def ensure_ingest_file_schema(cur) -> None:
     cur.execute("""
